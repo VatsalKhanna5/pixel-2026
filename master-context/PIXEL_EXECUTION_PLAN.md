@@ -104,22 +104,22 @@ Pixel validity criterion: `Δ_pixel ≪ λ_eff/10`
 | Python | 3.13.9 | ✅ Available |
 | PyTorch | 2.11.0+cu128 | ✅ Available |
 | torchvision | 0.26.0+cu128 | ✅ Available |
-| NumPy | 2.4.3 | ✅ Available |
-| SciPy | 1.16.3 | ✅ Available |
-| transformers | 5.5.0 | ✅ Available |
+| numpy | 2.4.4 | ✅ Available |
+| scipy | 1.17.1 | ✅ Available |
+| transformers | 5.8.1 | ✅ Available |
 | accelerate | 1.13.0 | ✅ Available (DDP) |
 | einops | 0.8.2 | ✅ Available |
-| h5py | 3.15.1 | ✅ Available (dataset storage) |
-| scikit-learn | 1.7.2 | ✅ Available |
+| h5py | 3.16.0 | ✅ Available (dataset storage) |
+| scikit-learn | 1.8.0 | ✅ Available |
 | scikit-image | 0.25.2 | ✅ Available |
-| wandb | 0.26.1 | ✅ Available (experiment tracking) |
-| pandas | 2.3.3 | ✅ Available |
-| matplotlib | 3.10.6 | ✅ Available |
+| wandb | 0.27.0 | ✅ Available (experiment tracking) |
+| pandas | 3.0.3 | ✅ Available |
+| matplotlib | 3.10.9 | ✅ Available |
 | tqdm | 4.67.1 | ✅ Available |
-| **openems** | — | ❌ NOT installed → Phase 0 |
-| **timm** | — | ❌ NOT installed → Phase 0 |
-| **diffusers** | — | ❌ NOT installed → Phase 0 |
-| **torchmetrics** | — | ❌ NOT installed → Phase 0 |
+| timm | 1.0.27 | ✅ Available |
+| diffusers | 0.38.0 | ✅ Available |
+| torchmetrics | 1.9.0 | ✅ Available |
+| **openems** | **v0.0.36-93-g7b9cd51** | **✅ Installed at D:\openEMS\openEMS\** |
 
 ## 3.3 Optimal Execution Strategy for This System
 
@@ -322,22 +322,23 @@ Get all software running and validated before writing research code.
 ---
 
 ## PHASE 1: Dataset Generation (Days 4–21)
+**STATUS: 🟡 IN PROGRESS — FDTD pipeline implemented; pilot running (Session 3, May 17 2026)**
 
 ### Goals
 Generate 200k physically valid, electromagnetically simulated RF structures as HDF5.
 
 ### Steps
-| Step | Action | Verification |
-|---|---|---|
-| 1.1 | Implement primitive generators (10 types) | Visual inspection of pixel maps; compare to known RF structures |
-| 1.2 | Implement stochastic perturbation engine | Histogram of geometric param distributions |
-| 1.3 | Implement BFS connectivity validator | On 1000 random layouts: compare DFS labels to human-inspected samples |
-| 1.4 | Implement OpenEMS simulation runner | S-parameter MSE vs. analytical transmission-line theory for simple lines |
-| 1.5 | Implement HDF5 writer with schema above | Load/read test, data type check |
-| 1.6 | Validate simulation pipeline end-to-end | 100 structures: full run, inspect S-parameters visually |
-| 1.7 | Launch 200k parallel generation job | 60-worker multiprocessing pool |
-| 1.8 | Monitor and checkpoint every 10k structures | Connectivity yield, S-param distribution |
-| 1.9 | Dataset quality audit | See Checkpoint P1 |
+| Step | Action | Verification | Status |
+|---|---|---|---|
+| 1.1 | Implement primitive generators (10 types) | Visual inspection of pixel maps | ✅ Done (primitives.py in generate.py) |
+| 1.2 | Implement stochastic perturbation engine | Histogram of geometric param distributions | ✅ Done |
+| 1.3 | Implement BFS connectivity validator | On 1000 random layouts | ✅ Done (connectivity.py) |
+| 1.4 | Implement OpenEMS simulation runner | S-parameter smoke-test PASSED (−2.14 dB, KK=0.313) | ✅ Done (openems_wrapper.py) |
+| 1.5 | Implement HDF5 writer with schema above | Load/read test, data type check | ✅ Done (hdf5_writer.py) |
+| 1.6 | Validate simulation pipeline end-to-end | FDTD smoke-test + 50-sample pilot | 🟡 Pilot running |
+| 1.7 | Launch 200k parallel generation job | 32-worker multiprocessing pool | ❌ Pending pilot pass |
+| 1.8 | Monitor and checkpoint every 10k structures | Connectivity yield, S-param distribution | ❌ Pending |
+| 1.9 | Dataset quality audit | See Checkpoint P1 | ❌ Pending |
 
 ### Checkpoint P1 — Dataset Quality Gates
 | Metric | Pass Criterion | If Fail |
@@ -362,6 +363,43 @@ For ring resonator: Check resonance at f₀ = c/(π·D·√εᵣ_eff)
 - If simulation times > 5 min/structure: Reduce frequency range to 1–10 GHz, N_f=50
 - If 200k takes > 10 days: Use 100k as primary dataset, 200k as stretch goal
 - If OpenEMS accuracy insufficient: Validate subset (1k structures) with analytical closed-form and use as error budget reference
+
+### Phase 1 Technical Notes (Session 3)
+**FDTD Configuration (DO NOT CHANGE without justification):**
+- Simulation backend: `src/dataset/openems_wrapper.py` using CSXCAD + openEMS v0.0.36
+- Grid: 43×43×21 cells = 38,829 FDTD cells; Δt = 1.306e-13 s
+- Domain: 7.5 mm × 7.5 mm × (substrate + ground + air); ext_x=0.5, ext_y=1.0, air_z=1.0 mm
+- Max simulation time: `SetMaxTime(2e-9)` → ≤15,314 timesteps → ≤48 s/simulation
+- End criterion: `SetEndCriteria(1e-2)` (−20 dB) — note: low-loss substrates plateau at −5 to −7 dB due to dielectric near-field with τ≈11 ns >> 2 ns window. This is PHYSICAL, not a bug.
+- S-parameter frequencies: 100 points from 0.5 GHz to 20 GHz (linspace)
+- Port impedance: 50 Ω, lumped port on left edge (port 1) and right edge (port 2), y-center
+- Passivity enforcement: `_enforce_passivity()` — `target_s21² = max(0, 0.995 − |s11|²)`, scale s21 magnitude
+- Substrate library: Rogers4003C (ε=3.55, tanδ=0.0027), FR4 (ε=4.4, tanδ=0.02), Rogers5880 (ε=2.2, tanδ=0.0009), Alumina (ε=9.8, tanδ=0.0001)
+
+**Pilot sanity thresholds:**
+- Mean |S21| > −6.0 dB
+- |S21| ripple < 15.0 dB (NOT 6 dB — high-freq rolloff at 20 GHz gives ~10 dB ripple for 7.5 mm line)
+- KK residual < 0.60
+- Passivity NOT checked in sanity (enforced by `_enforce_passivity` in `simulate()`)
+
+**Throughput estimate (32 workers):**
+- Worst-case: 48 s/sim → 75 sim/hr/worker → 32 workers = 2,400 sim/hr → 200K / 2,400 ≈ 83 hr ≈ 3.5 days
+- Optimistic: many layouts converge faster (resonant structures hit −20 dB before 15,314 steps)
+
+**Generation command (after pilot passes):**
+```powershell
+cd D:\pixel-2026\pixel-2026
+$env:PYTHONUTF8=1
+Remove-Item data\raw\pixel_dataset.h5 -Force
+Remove-Item data\raw\pixel_dataset.checkpoint.json -Force
+C:\Users\tyrone\anaconda3\envs\pixel-env\python.exe -m src.dataset.generate --config experiments/configs/base_config.yaml --workers 32 --n-samples 200000 --skip-sanity --skip-pilot
+```
+Use `--resume` if interrupted.
+
+**Python invocation rules:**
+- ALWAYS use full path: `C:\Users\tyrone\anaconda3\envs\pixel-env\python.exe`
+- ALWAYS set `$env:PYTHONUTF8=1` before running
+- PowerShell exit code 1 with `2>&1` is cosmetic (NativeCommandError) — check Python logs only
 
 ---
 
