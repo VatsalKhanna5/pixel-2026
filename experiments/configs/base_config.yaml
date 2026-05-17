@@ -1,0 +1,178 @@
+# experiments/configs/base_config.yaml
+# ============================================================
+#  PIXEL-2026  —  Base Experiment Configuration
+#  All experiment configs inherit from / override these values.
+#  Loaded via OmegaConf in training scripts.
+#
+#  Usage:
+#    from omegaconf import OmegaConf
+#    cfg = OmegaConf.load("experiments/configs/base_config.yaml")
+# ============================================================
+
+# -----------------------------------------------------------
+# Reproducibility
+# -----------------------------------------------------------
+seed: 42
+deterministic: true        # torch.backends.cudnn.deterministic
+
+# -----------------------------------------------------------
+# Project paths (relative to project root)
+# -----------------------------------------------------------
+paths:
+  root: "."
+  data: "data/processed"
+  raw_data: "data/raw"
+  checkpoints: "checkpoints"
+  logs: "logs"
+  experiments: "experiments"
+
+# -----------------------------------------------------------
+# Dataset
+# -----------------------------------------------------------
+dataset:
+  grid_h: 15
+  grid_w: 15
+  n_freq: 100
+  freq_min_ghz: 0.5
+  freq_max_ghz: 20.0
+  physical_domain_mm: 7.5       # 7.5 mm → Δ=0.5 mm → valid to ~12 GHz (conservative)
+  substrates:
+    - { id: 0, name: "Rogers4003C", eps_r: 3.55, tan_d: 0.0027 }
+    - { id: 1, name: "FR4",         eps_r: 4.40, tan_d: 0.0200 }
+    - { id: 2, name: "Rogers5880",  eps_r: 2.20, tan_d: 0.0009 }
+    - { id: 3, name: "Alumina",     eps_r: 9.80, tan_d: 0.0001 }
+  port1: [7, 0]               # [row, col] — left-edge centre
+  port2: [7, 14]              # [row, col] — right-edge centre
+  target_size: 200000
+  min_viable_size: 100000
+  train_frac: 0.80
+  val_frac: 0.10
+  test_frac: 0.10
+  n_workers_generation: 56    # leave 8 threads for OS on 64-thread system
+
+# -----------------------------------------------------------
+# Spectral Encoder
+# -----------------------------------------------------------
+encoder:
+  in_channels: 4              # S11_mag, S21_mag, S11_phase, S21_phase
+  embed_dim: 256
+  n_res_blocks: 3
+  kernel_size: 5
+  downsample_stages: 2        # 100 → 50 → 25 freq tokens
+  arch: "1d_resnet"           # "1d_resnet" | "transformer"
+
+# -----------------------------------------------------------
+# Forward Surrogate (Physics Model)
+# -----------------------------------------------------------
+surrogate:
+  in_channels: 1              # single-channel binary layout (+ port channel = 2)
+  use_port_channel: true
+  base_channels: 32
+  n_res_stages: 3
+  downsample_stages: 2        # 15→8→4
+  output_dim: 400             # 4 × N_f (exploiting S12=S21 reciprocity)
+  ensemble_size: 5
+  # Loss weights
+  lambda_mse: 1.0
+  lambda_passivity: 0.10
+  lambda_reciprocity: 0.05
+  lambda_kk: 0.05
+  lambda_smooth: 0.02
+  # Training
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  batch_size: 512
+  epochs: 120
+  scheduler: "cosine"         # "cosine" | "step" | "plateau"
+  # Gradient fidelity gate
+  grad_cosine_threshold: 0.70
+
+# -----------------------------------------------------------
+# Denoiser (D3PM Generative Model)
+# -----------------------------------------------------------
+denoiser:
+  # D3PM setup
+  T: 1000                     # diffusion timesteps
+  corruption: "absorbing"     # absorbing-state masking (ternary {0,1,MASK})
+  n_states: 3                 # 0=dielectric, 1=conductor, 2=MASK
+  token_embed_dim: 32         # per-pixel state embedding dimension
+  # U-Net architecture
+  base_channels: 64
+  channel_mult: [1, 2]        # 64 → 128 (2 downsampling stages only, 15×15 grid)
+  n_res_blocks: 2
+  attention_at_bottleneck: true
+  # Conditioning
+  cond_embed_dim: 256         # must match encoder.embed_dim
+  timestep_embed_dim: 128
+  # CFG
+  cfg_dropout_prob: 0.15
+  cfg_guidance_weight: 2.0    # w in the log-probability CFG formula
+  # Training
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  batch_size: 256             # per-GPU; effective = 512 with 2 GPUs DDP
+  epochs: 300
+  scheduler: "cosine"
+  warmup_steps: 2000
+  gradient_clip_norm: 1.0
+  lambda_aux_x0: 0.5          # auxiliary x0-prediction loss weight
+  # EMA
+  use_ema: true
+  ema_decay: 0.9999
+
+# -----------------------------------------------------------
+# Connectivity Discriminator
+# -----------------------------------------------------------
+discriminator:
+  base_channels: 32
+  n_res_blocks: 3
+  lr: 5.0e-4
+  batch_size: 256
+  epochs: 50
+  pos_weight: 2.0             # BCEWithLogitsLoss pos_weight for class imbalance
+
+# -----------------------------------------------------------
+# Physics-Guided Sampling
+# -----------------------------------------------------------
+guidance:
+  alpha_max: 0.10             # maximum guidance step size
+  t_threshold: 400            # guidance activates when t < t_threshold (= 0.4T)
+  lambda_topo: 1.00           # connectivity guidance weight
+  lambda_mfg: 0.50            # DRC / manufacturability guidance weight
+  epsilon_uncertainty: 0.01   # prevents div-by-zero in uncertainty weighting
+  gradient_clip_norm: 1.00    # clip guidance gradient before applying to logits
+  # Gumbel-Sigmoid annealing
+  gumbel_tau_init: 1.00
+  gumbel_tau_final: 0.01
+
+# -----------------------------------------------------------
+# Evaluation
+# -----------------------------------------------------------
+evaluation:
+  n_test_specs: 1000
+  n_samples_per_spec: 5       # sample diversity
+  em_verify_n: 200            # number of layouts to verify with full-wave EM
+  connectivity_yield_target: 0.95
+  drc_pass_target: 0.90
+  s21_mse_target: 0.08
+  s11_mse_target: 0.08
+
+# -----------------------------------------------------------
+# Hardware / compute
+# -----------------------------------------------------------
+compute:
+  gpus: [0, 1]
+  use_ddp: true
+  mixed_precision: "bf16"     # "no" | "fp16" | "bf16"
+  compile: false              # torch.compile — enable after stability confirmed
+  dataloader_workers: 8
+  pin_memory: true
+
+# -----------------------------------------------------------
+# WandB
+# -----------------------------------------------------------
+wandb:
+  project: "pixel-2026"
+  entity: null                # set to your wandb username/org
+  tags: ["baseline"]
+  log_every_n_steps: 50

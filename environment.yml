@@ -1,0 +1,88 @@
+# ============================================================
+#  PIXEL-2026  —  Conda Environment Specification
+#  Reproduces the full Python environment for this project.
+#
+#  USAGE:
+#    conda env create -f environment.yml
+#    conda activate pixel-env
+#
+#  UPDATE (after any pip change):
+#    conda env export --no-builds | grep -v "prefix" > environment.yml
+# ============================================================
+
+name: pixel-env
+
+channels:
+  - defaults
+  - conda-forge
+
+dependencies:
+  - python=3.13
+  - pip
+
+  # ---- pip-installed packages --------------------------------
+  - pip:
+    # Core deep learning (CUDA 12.8 wheels)
+    - torch==2.11.0
+    - torchvision==0.26.0
+    - torchaudio==2.11.0
+    - torchmetrics>=1.4.0
+
+    # Vision / attention building blocks
+    - timm>=1.0.0
+
+    # Diffusion model tooling (reference implementations)
+    - diffusers>=0.30.0
+
+    # HuggingFace ecosystem
+    - transformers>=4.45.0
+    - accelerate>=0.34.0
+    - datasets>=2.20.0
+
+    # Scientific computing
+    - numpy>=2.0.0
+    - scipy>=1.13.0
+    - scikit-learn>=1.5.0
+    - scikit-image>=0.24.0
+
+    # Data storage
+    - h5py>=3.11.0
+    - pandas>=2.2.0
+
+    # Tensor utility
+    - einops>=0.8.0
+
+    # Plotting / visualisation
+    - matplotlib>=3.9.0
+    - seaborn>=0.13.0
+
+    # Progress / logging
+    - tqdm>=4.66.0
+    - wandb>=0.17.0
+    - rich>=13.8.0
+
+    # Configuration management
+    - pyyaml>=6.0.0
+    - omegaconf>=2.3.0
+
+    # Notebook support
+    - notebook>=7.0.0
+    - ipykernel>=6.29.0
+    - ipywidgets>=8.1.0
+
+    # Testing
+    - pytest>=8.3.0
+    - pytest-cov>=5.0.0
+
+    # Code quality
+    - black>=24.8.0
+    - isort>=5.13.0
+    - flake8>=7.1.0
+
+    # Misc utilities
+    - psutil>=6.0.0
+    - joblib>=1.4.0
+    - pynvml>=11.5.0
+
+    # This package (editable install)
+    - -e .

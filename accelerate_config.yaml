@@ -1,0 +1,36 @@
+# accelerate_config.yaml
+# ============================================================
+#  PIXEL-2026  —  Accelerate DDP Configuration
+#  For 2× Quadro RTX 8000 on a single node.
+#
+#  Usage:
+#    accelerate launch --config_file accelerate_config.yaml \
+#        src/training/train_denoiser.py \
+#        --config experiments/configs/base_config.yaml
+#
+#  Or set as default:
+#    cp accelerate_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
+# ============================================================
+
+compute_environment: LOCAL_MACHINE
+distributed_type: MULTI_GPU
+downcast_bf16: "no"
+
+# Machine configuration
+machine_rank: 0
+main_process_ip: null
+main_process_port: null
+main_training_function: main
+num_machines: 1
+num_processes: 2              # 2 GPUs
+gpu_ids: "0,1"
+
+# Mixed precision
+mixed_precision: bf16         # RTX 8000 supports bfloat16
+
+# DeepSpeed — not needed at this scale; pure DDP is sufficient
+use_cpu: false
+debug: false
+
+# Gradient accumulation (adjust if needed for denoiser)
+gradient_accumulation_steps: 1
