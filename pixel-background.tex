@@ -1,0 +1,2525 @@
+% ============================================================
+%  PIXEL-2026 — Technical & Research Background Document
+%  Target Venue : AAAI-2027  (+ IEEE TMTT / IEEE TNNLS)
+%  Status       : Active Research Blueprint  |  v2.0  |  May 2026
+% ============================================================
+
+\documentclass[12pt,a4paper]{article}
+
+% ---------- encoding & language ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+% ---------- page geometry ----------
+\usepackage[margin=1in, top=1.1in, bottom=1.1in]{geometry}
+
+% ---------- math ----------
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{bm}          % bold math symbols
+\usepackage{bbm}         % blackboard-bold 1
+
+% ---------- fonts ----------
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ---------- graphics & colour ----------
+\usepackage{graphicx}
+\usepackage[dvipsnames,table]{xcolor}
+\definecolor{pixelblue}{RGB}{0,74,173}
+\definecolor{pixelgray}{RGB}{245,245,248}
+\definecolor{warnred}{RGB}{180,20,20}
+\definecolor{okgreen}{RGB}{0,120,60}
+
+% ---------- tables ----------
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+
+% ---------- lists ----------
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.5em, itemsep=2pt}
+\setlist[enumerate]{leftmargin=1.5em, itemsep=2pt}
+
+% ---------- code / algorithms ----------
+\usepackage{listings}
+\lstset{
+  backgroundcolor=\color{pixelgray},
+  basicstyle=\ttfamily\small,
+  frame=single,
+  rulecolor=\color{gray!40},
+  breaklines=true,
+  numbers=none
+}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+% ---------- hyperlinks ----------
+\usepackage[
+  colorlinks=true,
+  linkcolor=pixelblue,
+  citecolor=pixelblue,
+  urlcolor=pixelblue,
+  pdftitle={PIXEL-2026 Technical Background},
+  pdfauthor={PIXEL Research Team}
+]{hyperref}
+
+% ---------- section styling ----------
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries\color{pixelblue}}{\thesection.}{0.6em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{pixelblue!80!black}}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.5em}{}
+
+% ---------- boxes for notes ----------
+\usepackage[most]{tcolorbox}
+\tcbset{
+  notebox/.style={
+    colback=pixelgray, colframe=pixelblue!60,
+    fonttitle=\bfseries\small, boxrule=0.5pt,
+    arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt
+  },
+  warnbox/.style={
+    colback=red!5, colframe=warnred!70,
+    fonttitle=\bfseries\small, boxrule=0.5pt,
+    arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt
+  },
+  fixbox/.style={
+    colback=green!5, colframe=okgreen!70,
+    fonttitle=\bfseries\small, boxrule=0.5pt,
+    arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt
+  }
+}
+
+% ---------- misc ----------
+\usepackage{caption}
+\captionsetup{font=small, labelfont=bf}
+\usepackage{float}
+\usepackage{parskip}
+\setlength{\parskip}{6pt}
+
+% ============================================================
+%  CUSTOM COMMANDS
+% ============================================================
+\newcommand{\FEM}{\mathcal{F}_{\mathrm{EM}}}
+\newcommand{\xtilde}{\tilde{x}}
+\newcommand{\xhat}{\hat{x}}
+\newcommand{\ystar}{\mathbf{y}^{*}}
+\newcommand{\yhat}{\hat{\mathbf{y}}}
+\newcommand{\Smat}{\mathbf{S}}
+\newcommand{\cy}{\mathbf{c}_y}
+\newcommand{\HW}{H \times W}
+\newcommand{\tthresh}{t_{\mathrm{thresh}}}
+\newcommand{\alphamax}{\alpha_{\max}}
+\newcommand{\sigmahat}{\hat{\sigma}}
+\newcommand{\Real}{\operatorname{Re}}
+\newcommand{\Imag}{\operatorname{Im}}
+\newcommand{\Hilbert}{\mathcal{H}}
+\newcommand{\NOTE}[1]{\begin{tcolorbox}[notebox]#1\end{tcolorbox}}
+\newcommand{\WARN}[1]{\begin{tcolorbox}[warnbox, title=V1 Error — Corrected in V2]#1\end{tcolorbox}}
+\newcommand{\FIX}[1]{\begin{tcolorbox}[fixbox, title=V2 Fix]#1\end{tcolorbox}}
+
+% ============================================================
+%  THEOREMS / DEFINITIONS
+% ============================================================
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{hypothesis}{Hypothesis}[section]
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}[section]
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}[section]
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+% ----------------------------------------------------------
+%  TITLE PAGE
+% ----------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{1.5cm}
+
+  {\Huge\bfseries\color{pixelblue}
+    Physics-Constrained Probabilistic\\[6pt]
+    Topology Synthesis for Inverse\\[6pt]
+    Electromagnetic RF/IC Design\\[10pt]
+  }
+
+  \vspace{0.5cm}
+  {\large\color{gray} \textit{PIXEL-2026 — Technical \& Research Background Document}}
+
+  \vspace{1cm}
+  \rule{0.8\linewidth}{1pt}
+
+  \vspace{0.5cm}
+  {\normalsize
+    \begin{tabular}{ll}
+      \textbf{Document Version:} & 2.0 (Validated \& Error-Corrected) \\[4pt]
+      \textbf{Date:}             & May 2026 \\[4pt]
+      \textbf{Target Venue:}     & AAAI-2027 \\[4pt]
+      \textbf{Concurrent:}       & IEEE TMTT / IEEE TNNLS \\[4pt]
+      \textbf{Status:}           & Active Research Blueprint \\
+    \end{tabular}
+  }
+
+  \vspace{1cm}
+  \rule{0.8\linewidth}{0.5pt}
+
+  \vspace{0.8cm}
+  \begin{tcolorbox}[notebox, width=0.85\linewidth]
+    \textbf{Document Purpose.}
+    This is the authoritative master research context for the PIXEL-2026 project.
+    It covers the full problem from first principles—physics, mathematics, AI
+    methodology, engineering constraints, novelty analysis, vulnerability assessment,
+    and AAAI positioning.  Every section has been validated, corrected, and enriched
+    from the v1 brainstorm.  All mathematical errors present in v1 have been
+    identified, documented, and fixed.
+  \end{tcolorbox}
+
+  \vfill
+  {\small\color{gray}
+    \textit{Hare Krishna.  All knowledge is offered at the lotus feet of the Supreme.}
+  }
+\end{titlepage}
+
+% ----------------------------------------------------------
+%  ABSTRACT
+% ----------------------------------------------------------
+\begin{abstract}
+\noindent
+We present \textbf{PIXEL} (\textbf{P}hysics-guided d\textbf{I}screte di\textbf{X}fusion for
+\textbf{E}M \textbf{L}ayout synthesis), a novel framework for inverse electromagnetic
+(EM) design of RF/IC structures.
+Given a target spectral specification expressed as S-parameters, PIXEL generates
+fabrication-ready, Maxwell-consistent binary conductor layouts on a discretised substrate
+grid.
+
+The framework rests on three interlocking scientific contributions:
+\begin{enumerate}
+  \item A \textbf{discrete diffusion generative model} (D3PM) over the binary EM layout space,
+        correctly formulated for ternary-state $\{0, 1, \textsc{mask}\}$ absorption-based corruption.
+  \item \textbf{Uncertainty-weighted differentiable physics guidance} that steers the reverse
+        denoising trajectory toward spectral objectives using a calibrated ensemble surrogate of
+        the full-wave EM forward map.
+  \item \textbf{Differentiable connectivity and manufacturability constraints} embedded
+        inside the generation process—not applied as post-hoc corrections.
+\end{enumerate}
+
+All v1 mathematical errors (continuous CFG applied to discrete space; gradient guidance on
+discrete tokens; missing Kramers--Kronig causality; incomplete passivity constraint) are
+formally corrected in this document.  The framework targets AAAI-2027 and concurrent
+IEEE TMTT submission.
+\end{abstract}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Executive Summary}
+\label{sec:exec}
+% ============================================================
+
+The inverse electromagnetic design problem asks:
+\emph{given a desired radio-frequency response, what physical layout of conductors on a
+dielectric substrate produces that response?}
+This problem is \textbf{ill-posed}, \textbf{combinatorially hard}, and of enormous
+engineering relevance—every modern RF chip, filter, coupler, and antenna requires solving
+some variant of it.
+
+Classical approaches either enumerate topology candidates using expensive full-wave
+simulations or restrict the search to pre-defined circuit templates.
+Neural inverse regressors learn a fast mapping from specification to layout, but because
+the mapping is one-to-many, deterministic networks collapse to physically meaningless
+``average'' structures.
+
+\medskip
+PIXEL resolves this by treating inverse EM design as \textbf{constrained probabilistic
+topology generation}.
+The key ideas are:
+
+\begin{itemize}
+  \item \textbf{Binary discrete diffusion.}
+        EM layouts live in $\{0,1\}^{H \times W}$—a discrete, binary space.
+        Gaussian (continuous) diffusion is the wrong model.
+        D3PM with absorbing-state masking is the right one.
+  \item \textbf{Physics guidance via differentiable surrogate.}
+        A fast CNN ensemble approximates the full-wave solver.
+        Its gradients steer the generative trajectory toward the target S-parameters.
+  \item \textbf{Topology and manufacturability as differentiable losses.}
+        A learned connectivity discriminator and differentiable DRC losses prevent the
+        generation of fabrication-invalid structures.
+\end{itemize}
+
+\begin{tcolorbox}[notebox, title=Critical Corrections from V1]
+\begin{itemize}
+  \item CFG formula copied verbatim from continuous diffusion — \textbf{wrong for discrete
+        diffusion} (fixed in Section~\ref{sec:cfg}).
+  \item Physics guidance gradient applied to discrete tokens — \textbf{undefined} (fixed in
+        Section~\ref{sec:guidance}).
+  \item Kramers--Kronig causality constraints entirely missing (added in
+        Section~\ref{sec:physics}).
+  \item Multi-port passivity constraint was scalar-incomplete (full matrix form in
+        Section~\ref{sec:physics}).
+\end{itemize}
+\end{tcolorbox}
+
+% ============================================================
+\section{Problem Statement}
+\label{sec:problem}
+% ============================================================
+
+\subsection{What We Are Trying to Solve}
+
+Imagine you are designing a bandpass filter for a 5G chip.
+You know exactly what you want: signals between 3.5~GHz and 3.7~GHz should pass through
+with less than 0.5~dB loss; everything outside that band should be suppressed by at least
+20~dB.
+What you \emph{do not} know is the physical shape of the copper trace on the PCB that will
+achieve this.
+That is the inverse EM design problem—going from \emph{what you want} to \emph{what you
+build}.
+
+\subsection{Formal Problem Definition}
+\label{sec:problem:formal}
+
+\begin{definition}[Inverse EM Design Problem]
+\textbf{Given:}
+\begin{itemize}
+  \item Target S-parameter specification $\ystar \in \mathbb{R}^{d}$, encoding
+        $|S_{11}(f)|$, $|S_{21}(f)|$, phase, and group delay across $N_f$ frequency samples.
+  \item Substrate specification $(\varepsilon_r,\, \tan\delta,\, h)$: relative permittivity,
+        loss tangent, substrate height.
+  \item Fabrication specification $(w_{\min},\, s_{\min},\, \Delta_{\mathrm{DRC}})$: minimum
+        trace width, minimum spacing, and the full DRC rule set.
+  \item Operating frequency range $[f_{\min},\, f_{\max}]$.
+\end{itemize}
+
+\textbf{Generate:}
+\begin{itemize}
+  \item A physical binary layout $x \in \{0,1\}^{\HW}$, where $1 =$ conductor and
+        $0 =$ dielectric/void.
+  \item Such that $\FEM(x) \approx \ystar$ (Maxwell-consistent spectral behavior).
+  \item And $x$ is topologically valid: connected, with port-accessible conducting paths.
+  \item And $x$ satisfies all manufacturing DRC rules.
+\end{itemize}
+\end{definition}
+
+\subsection{Why the Problem Is Hard}
+\label{sec:problem:hard}
+
+\begin{table}[H]
+\centering
+\caption{Sources of hardness in the inverse EM design problem.}
+\label{tab:hardness}
+\begin{tabular}{lp{7.5cm}}
+\toprule
+\textbf{Property} & \textbf{Consequence} \\
+\midrule
+Binary domain $\{0,1\}^{\HW}$ &
+  Search space $2^{HW}$; for $H=W=15$: $2^{225} \approx 10^{67}$ possibilities. \\
+\addlinespace
+Topology sensitivity &
+  A single pixel flip can cause a discontinuous jump in the S-parameter response. \\
+\addlinespace
+Many-to-one forward map &
+  Multiple distinct layouts produce nearly identical spectra (ill-posed inverse). \\
+\addlinespace
+Non-convex forward physics &
+  Global optimisation of $\FEM$ is computationally intractable. \\
+\addlinespace
+Fabrication constraints &
+  Reduces the valid search space but adds further combinatorial structure. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The problem is \textbf{ill-posed} in the sense of Hadamard:
+\begin{itemize}
+  \item \textbf{Non-uniqueness.}  For any $\ystar$, multiple layouts $x$ satisfy
+        $\FEM(x) \approx \ystar$.
+  \item \textbf{Non-existence.}  Some $\ystar$ may not be physically realizable at a
+        given resolution.
+  \item \textbf{Instability.}  Small perturbations in $\ystar$ may yield topologically
+        different layouts.
+\end{itemize}
+
+These three properties together mandate a \textbf{probabilistic} approach: instead of
+finding a single layout, we learn the full conditional distribution
+$P(x \mid \ystar)$ over valid layouts.
+
+\subsection{Why Existing Approaches Fail}
+\label{sec:problem:existing}
+
+\paragraph{Deterministic CNN/MLP regressors.}
+Output a single $x$ for each $\ystar$.
+For ill-posed mappings, training collapses to the conditional mean—a blurry,
+topologically invalid, physically nonsensical average over the solution manifold.
+
+\paragraph{Genetic algorithms / evolutionary methods.}
+Require $\mathcal{O}(10^3$--$10^5)$ EM forward evaluations per design.
+Non-differentiable and poor at scaling with layout complexity.
+No concept of a learned design manifold.
+
+\paragraph{Adjoint topology optimisation.}
+Requires a continuous material density (not discrete binary topology).
+Produces grayscale designs that must be projected to binary—introducing spectral
+artefacts and manufacturability violations.
+
+\paragraph{Standard continuous diffusion (DDPM/DDIM).}
+Assumes Gaussian noise corruption.
+Binary EM layouts violate this assumption: intermediate diffusion states are
+continuous-valued with no physical interpretation, and the learned prior is wrong.
+
+\NOTE{\textbf{Key takeaway.}
+Each existing method fails either because it ignores the probabilistic nature of the
+problem, assumes continuous variables when the domain is discrete, or cannot enforce
+topological validity during generation.
+PIXEL addresses all three failures simultaneously.}
+
+% ============================================================
+\section{Physics Foundations and First Principles}
+\label{sec:physics}
+% ============================================================
+
+\subsection{Why Physics Matters in an AI Paper}
+
+Before building any neural network, we must understand \emph{what physics governs the
+thing we are designing}.
+EM structures obey Maxwell's equations—these are not soft guidelines but hard laws.
+Any generated layout that violates them is physically meaningless, regardless of how
+good the neural network loss looks.
+This section establishes the physical ground truth that every component of PIXEL must
+respect.
+
+\subsection{Governing Equations (Maxwell in Frequency Domain)}
+\label{sec:maxwell}
+
+At a single frequency $f$ (with $\omega = 2\pi f$), electromagnetic behaviour is
+described by the time-harmonic (phasor) form of Maxwell's equations:
+
+\begin{align}
+  \nabla \times \mathbf{E} &= -j\omega\mu\mathbf{H} \label{eq:faraday}\\
+  \nabla \times \mathbf{H} &= \mathbf{J} + j\omega\varepsilon\mathbf{E} \label{eq:ampere}\\
+  \nabla \cdot \mathbf{D}  &= \rho_f \label{eq:gauss_e}\\
+  \nabla \cdot \mathbf{B}  &= 0 \label{eq:gauss_m}
+\end{align}
+
+The binary layout $x \in \{0,1\}^{\HW}$ determines the \emph{spatial permittivity
+distribution}:
+
+\begin{equation}
+  \varepsilon(\mathbf{r}) =
+  \begin{cases}
+    \varepsilon_0\!\left(1 - \dfrac{j\sigma}{\omega\varepsilon_0}\right) &
+      \text{if pixel $(i,j)$ containing $\mathbf{r}$ has } x_{ij} = 1
+      \quad (\text{conductor}) \\[6pt]
+    \varepsilon_0 \varepsilon_r &
+      \text{if } x_{ij} = 0 \quad (\text{dielectric})
+  \end{cases}
+  \label{eq:permittivity}
+\end{equation}
+
+\textbf{The inverse design task is therefore:} find the binary map $x$ (equivalently,
+find $\varepsilon(\mathbf{r})$) such that the resulting S-parameters match $\ystar$.
+
+\subsection{Scattering Matrix Theory — Complete Formulation}
+\label{sec:smatrix}
+
+For an $N$-port passive microwave network, the scattering matrix
+$\Smat \in \mathbb{C}^{N \times N}$ must satisfy three physical laws:
+
+\paragraph{Passivity (power conservation).}
+\begin{equation}
+  \Smat^\dagger \Smat \preceq \mathbf{I}
+  \label{eq:passivity}
+\end{equation}
+The notation $\preceq \mathbf{I}$ means the matrix $(\mathbf{I} - \Smat^\dagger\Smat)$
+is positive semi-definite—no more power can come out of a passive network than goes in.
+For a 2-port this reduces to the familiar $|S_{11}|^2 + |S_{21}|^2 \leq 1$,
+but the \emph{full matrix form must be used} in the training loss (the scalar form is
+incorrect for $N > 2$).
+
+\paragraph{Reciprocity (for non-magnetic media).}
+\begin{equation}
+  \Smat^T = \Smat \quad \Longrightarrow \quad S_{ij} = S_{ji}
+  \label{eq:reciprocity}
+\end{equation}
+In particular $S_{12} = S_{21}$ for 2-port structures; exploiting this halves the
+output dimension of the surrogate.
+
+\paragraph{Losslessness (ideally lossless structures only).}
+\begin{equation}
+  \Smat^\dagger \Smat = \mathbf{I}
+  \label{eq:lossless}
+\end{equation}
+Real microstrip substrates have dielectric and conductor losses, so losslessness is
+unrealistic.  The passivity inequality~\eqref{eq:passivity} is the correct soft constraint.
+
+\subsection{Causality and Kramers--Kronig Relations}
+\label{sec:kk}
+
+\begin{tcolorbox}[warnbox, title=V1 Gap — Critical Missing Physics]
+Version~1 contained no causality constraint.
+A surrogate trained without it can learn physically impossible S-parameter responses
+where the output \emph{precedes} the input in time.
+\end{tcolorbox}
+
+Physical S-parameters must be \textbf{causal}: the response cannot precede the
+excitation.
+This is enforced by the \textbf{Kramers--Kronig (KK) relations}, which link the real
+and imaginary parts of any linear causal transfer function:
+
+\begin{align}
+  \Real[S_{ij}(f)] &=
+    \frac{2}{\pi}\,\mathcal{P}\!\int_0^\infty
+      \frac{f'\,\Imag[S_{ij}(f')]}{f'^2 - f^2}\,df'
+  \label{eq:kk_real}\\[4pt]
+  \Imag[S_{ij}(f)] &=
+    -\frac{2}{\pi}\,\mathcal{P}\!\int_0^\infty
+      \frac{f\,\Real[S_{ij}(f')]}{f'^2 - f^2}\,df'
+  \label{eq:kk_imag}
+\end{align}
+
+where $\mathcal{P}$ denotes the Cauchy principal value integral.
+
+\textbf{Critical implementation consequence.}
+Training a surrogate to independently regress magnitude and phase as uncorrelated targets
+violates causality.
+The fix: enforce the KK constraint via a loss term during surrogate training.
+
+\begin{equation}
+  \mathcal{L}_{KK} =
+    \left\|\Real[\hat{\Smat}] - \Hilbert\!\left\{\Imag[\hat{\Smat}]\right\}\right\|^2
+  \label{eq:lkk}
+\end{equation}
+
+where $\Hilbert$ is the discrete Hilbert transform operator (computed via FFT in practice).
+
+\subsection{Transmission Line Theory — Grounding the Dataset}
+\label{sec:tl}
+
+Classical RF design uses the \textbf{telegrapher's equations}:
+
+\begin{align}
+  \frac{dV(z)}{dz} &= -(R + j\omega L)\,I(z) \\
+  \frac{dI(z)}{dz} &= -(G + j\omega C)\,V(z)
+\end{align}
+
+with propagation constant
+$\gamma = \sqrt{(R+j\omega L)(G+j\omega C)}$.
+For a lossless line: $\gamma = j\beta = j\omega\sqrt{LC}$.
+
+Every \emph{primitive structure} in our procedural dataset is the pixel-discretised
+realisation of a classical transmission-line element.
+This is not an arbitrary design choice—it grounds the dataset in known physics:
+
+\begin{table}[H]
+\centering
+\caption{Mapping from classical RF elements to pixel-grid primitives.}
+\label{tab:primitives}
+\begin{tabular}{lll}
+\toprule
+\textbf{Classical Element} & \textbf{Pixel Primitive} & \textbf{Physical Behaviour} \\
+\midrule
+Microstrip line (length $\ell$)   & Row of connected pixels      & Transmission with phase shift $\beta\ell$ \\
+$\lambda/4$ shunt stub            & Vertical stub at midpoint    & Bandstop at design frequency $f_0$ \\
+$\lambda/2$ resonator             & Isolated line segment        & Bandpass resonance \\
+Coupled lines                     & Two parallel adjacent traces & Directional coupling \\
+Interdigital structure            & Alternating finger pixels    & Wideband bandpass filter \\
+Split-ring resonator (SRR)        & Broken-ring pixel pattern    & Negative effective permeability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Effective Medium Theory and Pixel Discretisation}
+\label{sec:emt}
+
+At sub-wavelength scales, the binary pixel assumption is valid only when the pixel size
+is much smaller than the effective wavelength.
+The Maxwell--Garnett effective medium theory gives:
+
+\begin{equation}
+  \varepsilon_{\mathrm{eff}} =
+    \varepsilon_h\,
+    \frac{\varepsilon_i(1+2f) + 2\varepsilon_h(1-f)}
+         {\varepsilon_i(1-f)  + \varepsilon_h(2+f)}
+  \label{eq:maxwell_garnett}
+\end{equation}
+
+where $f$ is the conductor fill fraction per pixel, $\varepsilon_i$ is conductor
+permittivity, and $\varepsilon_h$ is host (substrate) permittivity.
+
+For the binary pixel assumption to hold, the pixel size must satisfy:
+
+\begin{equation}
+  \Delta_{\mathrm{pixel}} \ll \frac{\lambda_{\mathrm{eff}}}{10},
+  \qquad
+  \lambda_{\mathrm{eff}} = \frac{c}{f_{\max}\sqrt{\varepsilon_{r,\mathrm{eff}}}}
+  \label{eq:pixel_validity}
+\end{equation}
+
+This constraint \emph{directly couples} the grid resolution, the frequency range, and
+the substrate properties.
+
+\subsection{Resolution–Frequency Co-Design}
+\label{sec:resfcodesign}
+
+\begin{tcolorbox}[warnbox, title=V1 Gap — Now Resolved]
+Version~1 chose $H = W = 15$ without physical justification.
+The co-design table below shows the valid frequency range for different physical domain
+sizes at $15\times15$ resolution on Rogers~4003C ($\varepsilon_r = 3.5$).
+\end{tcolorbox}
+
+\begin{table}[H]
+\centering
+\caption{Valid operating frequency for $15\!\times\!15$ pixel grid
+         (Rogers~4003C, $\varepsilon_r=3.5$).
+         Pixel validity criterion: $\Delta < \lambda_{\mathrm{eff}}/10$.}
+\label{tab:res_freq}
+\begin{tabular}{ccc}
+\toprule
+\textbf{Physical domain $L$} & \textbf{Pixel size $\Delta = L/15$} & \textbf{Valid $f_{\max}$} \\
+\midrule
+20~mm & 1.33~mm & $\approx$4.5~GHz \\
+10~mm & 0.67~mm & $\approx$9~GHz   \\
+ 5~mm & 0.33~mm & $\approx$18~GHz  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Recommendation.}
+Constrain the physical domain to $5$--$10$~mm at $15\times15$ resolution.
+This covers the range 2--18~GHz, which includes most RF/microwave applications
+(cellular, WiFi, Bluetooth, satellite bands).
+
+\NOTE{\textbf{Scaling plan.}
+The $15\times15$ grid is a valid proof-of-concept.
+The architecture naturally extends to $32\times32$ (covering mmWave up to $\sim$40~GHz)
+with a larger dataset and higher-resolution simulations.
+A scaling experiment at $32\times32$ is included in the evaluation plan.}
+
+% ============================================================
+\section{Mathematical Formulation}
+\label{sec:math}
+% ============================================================
+
+\subsection{Layout Space}
+
+\begin{equation}
+  x \in \{0,1\}^{\HW}, \quad H = W = 15
+  \label{eq:layout_space}
+\end{equation}
+
+A pixel value of $1$ denotes conductor; $0$ denotes dielectric.
+For training purposes, a \textbf{continuous relaxation} is required:
+
+\begin{equation}
+  \xtilde \in [0,1]^{\HW}
+  \label{eq:relaxed}
+\end{equation}
+
+with annealed binarisation during training (detailed in Section~\ref{sec:binarisation}).
+
+\subsection{Spectral Specification Space}
+
+\begin{equation}
+  \mathbf{y} \in \mathbb{R}^{d}, \quad
+  d = N_{\mathrm{port}}^2 \times N_f \times 2
+  \label{eq:spec_space}
+\end{equation}
+
+The factor of~2 accounts for magnitude and phase (or equivalently, real and imaginary
+parts).
+For a 2-port with $N_f = 100$ frequency samples:
+$d = 4 \times 100 \times 2 = 800$.
+Exploiting reciprocity ($S_{12} = S_{21}$) reduces to $d = 2 \times N_f \times 2 = 400$
+in practice.
+
+\subsection{Forward Electromagnetic Mapping}
+
+\begin{equation}
+  \mathbf{y} = \FEM(x)
+  \label{eq:forward}
+\end{equation}
+
+$\FEM$ denotes the full-wave EM solver (OpenEMS FDTD in this work).
+Key properties:
+
+\begin{itemize}
+  \item \textbf{Nonlinear} — S-parameters are a nonlinear function of topology.
+  \item \textbf{Non-differentiable w.r.t.\ discrete $x$} — a pixel flip is a discontinuous event.
+  \item \textbf{Expensive} — each evaluation takes 1--10~minutes (frequency-swept FDTD).
+  \item \textbf{Physics-complete} — satisfies Maxwell's equations by construction
+        (within discretisation error).
+\end{itemize}
+
+\subsection{Inverse Design Objective (Extended)}
+\label{sec:objective}
+
+The formal optimisation objective is:
+
+\begin{equation}
+  x^* = \arg\min_{x \in \mathcal{X}_{\mathrm{valid}}}
+    \mathcal{L}_{\mathrm{spec}}\!\left(\FEM(x),\, \ystar\right)
+    + \lambda_{KK}\,\mathcal{L}_{KK}(x)
+    + \lambda_{\mathrm{pass}}\,\mathcal{L}_{\mathrm{pass}}(x)
+  \label{eq:objective}
+\end{equation}
+
+where $\mathcal{X}_{\mathrm{valid}}$ is the feasible set requiring:
+topological validity (connected, port-accessible),
+manufacturing DRC compliance, and physical realizability (no floating islands).
+
+Direct optimisation over $\mathcal{X}_{\mathrm{valid}}$ is intractable.
+We instead learn the conditional distribution:
+
+\begin{equation}
+  P_\theta(x \mid \mathbf{y})
+    \propto P_\theta(x)\cdot P(\mathbf{y} \mid x)
+    \cdot \mathbbm{1}[x \in \mathcal{X}_{\mathrm{valid}}]
+  \label{eq:posterior}
+\end{equation}
+
+\subsection{Spectral Loss Function}
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{spec}}(\yhat, \ystar)
+  =
+  \underbrace{
+    \frac{1}{N_f}\sum_f \bigl(|S_{11}(f)| - |S_{11}^*(f)|\bigr)^2
+  }_{\text{return loss}}
+  +
+  \underbrace{
+    \frac{1}{N_f}\sum_f \bigl(|S_{21}(f)| - |S_{21}^*(f)|\bigr)^2
+  }_{\text{insertion loss}}
+  \label{eq:lspec}
+\end{equation}
+
+For filter designs, band-specific losses are added:
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{band}}
+  =
+  \frac{1}{|\mathcal{F}_{\mathrm{pass}}|}\sum_{f \in \mathcal{F}_{\mathrm{pass}}}
+    |S_{21}(f)|^2
+  +
+  \frac{1}{|\mathcal{F}_{\mathrm{stop}}|}\sum_{f \in \mathcal{F}_{\mathrm{stop}}}
+    \bigl(|S_{21}(f)| - S_{\mathrm{stop}}^*\bigr)^2
+  \label{eq:lband}
+\end{equation}
+
+\subsection{Surrogate Physics Loss (Full Form)}
+
+The surrogate is trained with physics-consistency regularisers:
+
+\begin{align}
+  \mathcal{L}_{\mathrm{surrogate}}
+  &= \underbrace{\|\yhat - \mathbf{y}\|_2^2}_{\mathrm{MSE}}
+   + \lambda_{\mathrm{pass}} \underbrace{\mathcal{L}_{\mathrm{pass}}}_{\mathrm{passivity}}
+   + \lambda_{\mathrm{recip}} \underbrace{\mathcal{L}_{\mathrm{recip}}}_{\mathrm{reciprocity}}
+   + \lambda_{KK} \underbrace{\mathcal{L}_{KK}}_{\mathrm{causality}}
+   + \lambda_{\mathrm{smooth}} \underbrace{\mathcal{L}_{\mathrm{smooth}}}_{\mathrm{smoothness}}
+  \label{eq:lsurr}
+\end{align}
+
+\paragraph{Passivity loss (full matrix form).}
+\begin{equation}
+  \mathcal{L}_{\mathrm{pass}}
+  = \frac{1}{N_f}\sum_f
+    \max\!\bigl(0,\; \lambda_{\max}(\hat{\Smat}^\dagger(f)\hat{\Smat}(f)) - 1\bigr)^2
+  \label{eq:lpass}
+\end{equation}
+
+where $\lambda_{\max}(\cdot)$ is the maximum eigenvalue.
+
+\paragraph{Reciprocity loss.}
+\begin{equation}
+  \mathcal{L}_{\mathrm{recip}}
+  = \frac{1}{N_f}\sum_f \|\hat{\Smat}(f) - \hat{\Smat}^T(f)\|_F^2
+  \label{eq:lrecip}
+\end{equation}
+
+\paragraph{Spectral smoothness.}
+\begin{equation}
+  \mathcal{L}_{\mathrm{smooth}}
+  = \frac{1}{N_f - 1}\sum_f
+    \|\hat{\Smat}(f+\Delta f) - \hat{\Smat}(f)\|_F^2
+  \label{eq:lsmooth}
+\end{equation}
+
+This suppresses spurious high-frequency artefacts in the predicted spectrum.
+
+% ============================================================
+\section{Core Scientific Hypothesis}
+\label{sec:hypothesis}
+% ============================================================
+
+\begin{hypothesis}[PIXEL Central Claim]
+\label{hyp:main}
+Inverse EM design can be formulated as constrained probabilistic topology synthesis
+over a \emph{learned manifold} of physically plausible electromagnetic structures,
+where differentiable surrogate physics and topological constraints jointly guide
+discrete generative sampling toward desired spectral objectives.
+\end{hypothesis}
+
+This hypothesis has three parts, each independently supported.
+
+\subsection{Part 1 — The EM Layout Manifold Is Low-Dimensional}
+
+Out of $2^{225} \approx 10^{67}$ possible $15\times15$ binary images, only an
+astronomically small fraction are:
+\begin{itemize}
+  \item physically connected (most random binary images have isolated conductors),
+  \item non-trivially resonant (structured resonances, controlled transmission), and
+  \item manufacturable (satisfy DRC rules).
+\end{itemize}
+
+This tiny fraction forms a \textbf{low-dimensional manifold} within the binary space.
+Learning this manifold is precisely what the generative prior must accomplish—and this
+is strongly supported by all classical physics of RF structures.
+
+\subsection{Part 2 — A Generative Prior Can Learn This Manifold}
+
+Successful precedents in analogous scientific domains:
+\begin{itemize}
+  \item \textbf{Protein structure generation:} Discrete amino-acid sequences + structural constraints → folded proteins.
+  \item \textbf{Molecule generation:} Graph-based discrete structures with physical validity constraints.
+  \item \textbf{Crystal structure generation:} Periodic discrete lattices with symmetry constraints.
+\end{itemize}
+
+The EM case is arguably simpler: physical constraints are either entirely local
+(topology, minimum feature size) or global (spectral behaviour), exactly matching the
+inductive bias of graph-conditioned discrete diffusion.
+
+\subsection{Part 3 — Differentiable Surrogate Physics Can Guide Sampling}
+
+\begin{itemize}
+  \item Analogous to \textbf{classifier guidance} in image diffusion
+        (Dhariwal \& Nichol, 2021), but with a physics surrogate replacing a classifier.
+  \item The ``class label'' is now a continuous spectral specification.
+  \item The ``classifier'' is the EM surrogate model.
+  \item This combination has direct precedent in molecule property-guided diffusion
+        (DiffSBDD, Schneuing et al., 2022).
+\end{itemize}
+
+% ============================================================
+\section{Novel Contributions — Detailed and Defended}
+\label{sec:contributions}
+% ============================================================
+
+\subsection{Contribution 1: Discrete Physics-Guided Generative Framework}
+
+\paragraph{What it is.}
+A complete end-to-end system combining discrete diffusion (D3PM) over binary EM layouts
+with differentiable physics guidance during reverse sampling.
+
+\paragraph{Why it is novel.}
+No prior work combines:
+\begin{enumerate}
+  \item Binary discrete diffusion (not continuous) for EM structures,
+  \item Physics surrogate gradient guidance in the discrete reverse process, and
+  \item Topology constraints embedded in the generative objective.
+\end{enumerate}
+
+\paragraph{AAAI argument.}
+The paper makes a methodological contribution to \emph{constrained discrete generative
+modelling} with domain application in EM design.
+The methodology is novel independent of the application domain.
+
+\subsection{Contribution 2: Uncertainty-Weighted Physics Guidance}
+
+\paragraph{What it is.}
+The physics guidance step size is modulated by the ensemble surrogate's uncertainty:
+
+\begin{equation}
+  \alpha_t \propto \frac{1}{\sigmahat(\xhat_0) + \epsilon}
+  \label{eq:uncertainty_guidance}
+\end{equation}
+
+where $\sigmahat(\xhat_0)$ is the ensemble surrogate variance at the current
+(partially denoised) predicted layout.
+
+\paragraph{Why it is novel.}
+Standard guidance uses a fixed or timestep-decayed step size.
+Uncertainty-weighted guidance provides a principled mechanism to:
+\begin{itemize}
+  \item Apply \emph{strong} guidance when the surrogate is confident (in-distribution),
+  \item Reduce guidance when the surrogate is uncertain (out-of-distribution early steps),
+  \item Prevent adversarial hallucination caused by overconfident guidance in noisy regions.
+\end{itemize}
+
+This is directly analogous to active-learning acquisition functions, but applied to
+generative trajectories.
+\textbf{No prior work} has proposed uncertainty-weighted guidance in physics-constrained
+diffusion for structural inverse design.
+
+\subsection{Contribution 3: Differentiable Connectivity Discriminator}
+
+\paragraph{What it is.}
+A learned binary classifier $D_{\mathrm{conn}}(x) \in [0,1]$ predicts topological
+validity.
+During generation, its gradient $\nabla_{\xtilde}\log D_{\mathrm{conn}}(\xtilde)$
+provides differentiable topology guidance.
+
+\paragraph{Why it is novel.}
+All prior EM inverse design work either:
+\begin{itemize}
+  \item Ignores connectivity entirely (most neural methods), or
+  \item Applies post-hoc graph repair (which breaks differentiability).
+\end{itemize}
+The differentiable discriminator is analogous to discriminator guidance in GANs but
+applied to topological validity rather than visual realism.
+
+\subsection{Contribution 4: Procedurally Structured EM Dataset}
+
+\paragraph{What it is.}
+A dataset of 100k--500k physically meaningful EM structures generated from parameterised
+RF primitives (not random binary images).
+
+\paragraph{Why it is novel.}
+The dataset generation methodology itself is a scientific contribution.
+A random binary pixel dataset is essentially useless for training a physics-aware
+generative model: it overwhelmingly samples physically degenerate configurations.
+The procedural approach ensures systematic coverage of resonant, filtering, and coupling
+behaviours with controlled diversity.
+
+\subsection{Contribution 5: End-to-End Manufacturable Synthesis Pipeline}
+
+A fully integrated pipeline:
+\[
+  \text{Spectral specification}
+  \;\to\; \text{D3PM sampling}
+  \;\to\; \text{Physics guidance}
+  \;\to\; \text{Topology validation}
+  \;\to\; \text{DRC check}
+  \;\to\; \text{Fabrication export}
+\]
+
+No prior work handles both spectral accuracy \emph{and} manufacturability in a single
+differentiable system.
+
+\subsection{Contribution 6: Rigorous Discrete Diffusion with Continuous Physics Guidance}
+
+\paragraph{What it is.}
+A mathematically correct reconciliation of discrete diffusion (Bernoulli/categorical
+state space) with continuous differentiable physics guidance via an explicit relaxation
+mechanism.
+
+\paragraph{Why it is novel.}
+The v1 document contained a fundamental mathematical error—applying continuous CFG to
+discrete diffusion.
+The corrected formulation (Sections~\ref{sec:cfg} and~\ref{sec:guidance}) provides a
+mathematically sound algorithm that is new in the discrete diffusion literature.
+
+% ============================================================
+\section{Dataset Generation Framework}
+\label{sec:dataset}
+% ============================================================
+
+\subsection{Why a Random Binary Dataset Fails}
+
+Uniform random binary layouts overwhelmingly produce:
+disconnected conductors, broadband scattering noise, weak resonances, and degenerate
+transmission behaviour.
+
+Training on such distributions causes mode collapse, poor topology priors, and
+physically meaningless generations.
+The manifold of \emph{useful} EM structures is vanishingly thin in random binary space.
+
+\subsection{Procedural Generation by Physical Primitives}
+
+Every structure in the dataset is constructed from parameterised physical primitives:
+
+\begin{table}[H]
+\centering
+\caption{Dataset primitive taxonomy with physical motivations.}
+\label{tab:dataset_primitives}
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+\textbf{Category} & \textbf{Primitive} & \textbf{Dominant Behaviour} \\
+\midrule
+Passband  & Microstrip line, tapered impedance transition & Low-loss transmission \\
+Stopband  & $\lambda/4$ shunt stub, $\lambda/2$ resonator, notch & Band rejection at $f_0$ \\
+Bandpass  & Coupled $\lambda/2$ resonators, interdigital, ring resonator & Selective transmission \\
+Coupling  & Edge-coupled lines, broadside coupling & Directional power transfer \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Stochastic Perturbation Strategy}
+\label{sec:perturbation}
+
+\begin{lstlisting}[caption={Pseudocode for procedural dataset generation.}]
+for each base primitive P:
+    geom_params = perturb(P.nominal_params,
+                          sigma = 0.15 * param_range)
+    P_perturbed  = render_primitive(geom_params)
+    P_pixel      = rasterize(P_perturbed, grid=15x15)
+
+    if random() < p_mutate:
+        P_pixel = local_mutation(P_pixel, n_flips=U(1,5))
+
+    if random() < p_combine:
+        P_pixel = combine(P_pixel, sample_primitive())
+\end{lstlisting}
+
+\paragraph{Mutation types.}
+\begin{itemize}
+  \item Random pixel flips in a local $3\times3$ neighbourhood (preserves macrostructure).
+  \item Edge erosion/dilation (simulates fabrication tolerances).
+  \item Gap insertion (creates capacitive discontinuities).
+  \item Stub addition (introduces parasitic inductance/capacitance).
+\end{itemize}
+
+\subsection{Connectivity Enforcement Algorithm}
+
+Every generated layout must pass the following four-step validation:
+
+\begin{enumerate}
+  \item \textbf{Port identification.} Identify input/output ports at fixed positions
+        (left/right edges, centre row). Mark port pixels as mandatory conductors.
+  \item \textbf{Connected component analysis.} BFS/DFS from port~1.
+        Check reachability to port~2.
+  \item \textbf{Island detection.} Identify all connected components.
+        Flag components not connected to any port as floating islands.
+  \item \textbf{Validation.}
+        PASS if all ports are reachable and there are no floating conductors.
+        FAIL $\Rightarrow$ discard and regenerate.
+\end{enumerate}
+
+\NOTE{\textbf{Why this matters.}
+OpenEMS will simulate a disconnected structure and return physically nonsensical
+S-parameters (infinite impedance, zero transmission).
+The dataset \emph{must} exclude all disconnected structures.}
+
+\subsection{Electromagnetic Simulation Pipeline}
+
+\begin{table}[H]
+\centering
+\caption{OpenEMS simulation parameters per structure.}
+\label{tab:sim_params}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Solver         & OpenEMS (FDTD, open-source) \\
+Grid resolution & $\Delta = L/H$ (matched to physical pixel size) \\
+Frequency sweep & $f_1 = 0.5$~GHz, $f_N = 20$~GHz, $N_f = 100$ (linear) \\
+Substrates      & $\varepsilon_r \in \{2.2,\; 3.5,\; 4.4,\; 10.2\}$ \\
+Port impedance  & $Z_0 = 50\;\Omega$ \\
+Time/structure  & $\sim$1--3~min (single CPU core) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Storage Format}
+
+\begin{table}[H]
+\centering
+\caption{HDF5 dataset schema.}
+\label{tab:data_schema}
+\begin{tabular}{llll}
+\toprule
+\textbf{Field} & \textbf{Shape} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{layout}         & $(15,15)$   & \texttt{uint8}   & Binary pixel map \\
+\texttt{S11\_mag}       & $(N_f,)$    & \texttt{float32} & Return loss magnitude \\
+\texttt{S21\_mag}       & $(N_f,)$    & \texttt{float32} & Insertion loss magnitude \\
+\texttt{S11\_phase}     & $(N_f,)$    & \texttt{float32} & Return loss phase (rad) \\
+\texttt{S21\_phase}     & $(N_f,)$    & \texttt{float32} & Insertion loss phase (rad) \\
+\texttt{substrate\_id}  & scalar      & \texttt{uint8}   & Substrate type index \\
+\texttt{resonance\_f}   & $(K,)$      & \texttt{float32} & Resonance frequencies \\
+\texttt{Q\_factor}      & $(K,)$      & \texttt{float32} & Q-factor at resonances \\
+\texttt{validity}       & scalar      & \texttt{bool}    & Passed all physical checks \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Dataset splits:} Train 80\% / Validation 10\% / Test 10\% (held-out, diverse types).
+
+\subsection{Dataset Scale Justification}
+
+For the prior to cover the EM manifold adequately:
+\begin{itemize}
+  \item $10^+$ primitive types $\times$ 1000 geometric parameter combinations
+        $= 10{,}000$ base structures.
+  \item $\times\;10$ perturbation variants each $= 100{,}000$ minimum.
+\end{itemize}
+
+Target: \textbf{100k--500k structures}.
+At 100k the model generalises within primitive families.
+At 500k cross-primitive combinations are well-represented.
+
+% ============================================================
+\section{Spectral Specification Encoder}
+\label{sec:encoder}
+% ============================================================
+
+\subsection{Why Frequency Correlations Cannot Be Ignored}
+
+The spectral specification $\mathbf{y}$ is a frequency-domain sequence with strong
+internal structure:
+\begin{itemize}
+  \item Resonances are \emph{local} in frequency (Lorentzian line shape).
+  \item Passband/stopband transitions have specific roll-off characteristics.
+  \item Phase is the Hilbert transform of log-magnitude for minimum-phase systems.
+\end{itemize}
+
+A flat MLP encoder ignoring these correlations will confuse:
+a resonance at 5~GHz with one at 10~GHz (different layout length scales),
+a sharp vs.\ broad resonance (different Q-factor),
+or a 3-pole vs.\ a 5-pole filter response.
+\emph{The architecture must explicitly model frequency correlations.}
+
+\subsection{Encoder Architecture}
+
+\paragraph{Recommended: 1D ResNet Encoder.}
+
+\begin{lstlisting}[caption={1D ResNet spectral encoder.}]
+Input : y in R^{4 x N_f}   (S11_mag, S21_mag, S11_phase, S21_phase)
+  |
+Conv1D(4->32, kernel=7, stride=1, pad=3) + LayerNorm + ReLU
+  |
+ResBlock1D x 3  (32 ch, kernel=5)
+  |
+Conv1D(32->64, kernel=3, stride=2)   # downsample freq axis by 2
+  |
+ResBlock1D x 3  (64 ch, kernel=5)
+  |
+Conv1D(64->128, kernel=3, stride=2)  # downsample by 2 again
+  |
+GlobalAveragePool -> Linear(128 -> m)
+  |
+Output: c_y in R^m,  m = 128 or 256
+\end{lstlisting}
+
+\paragraph{Alternative: Lightweight Transformer Encoder.}
+Tokenise the spectrum into 10-frequency chunks ($N_f/10$ tokens), apply 4-head
+attention with 2 layers, and use the CLS-token output as $\cy$.
+Use this if ablation shows insufficient frequency correlation capture with the ResNet.
+
+\subsection{Conditioning Mechanism}
+
+The latent embedding $\cy \in \mathbb{R}^m$ is injected into the denoiser via
+\textbf{Adaptive Layer Normalisation (AdaLN)}:
+
+\begin{equation}
+  \mathrm{AdaLN}(h,\, \cy,\, t)
+  = \bigl(1 + \gamma([\cy;\, e_t])\bigr)
+    \cdot \mathrm{LayerNorm}(h)
+    + \beta([\cy;\, e_t])
+  \label{eq:adaLN}
+\end{equation}
+
+where $e_t$ is the sinusoidal timestep embedding and $\gamma, \beta$ are learned linear
+projections.
+This is the DiT-style conditioning (Peebles \& Xie, 2022) and has proven stable
+and efficient across many architectures.
+
+% ============================================================
+\section{Forward Surrogate Physics Model}
+\label{sec:surrogate}
+% ============================================================
+
+\subsection{Role and Requirements}
+
+The surrogate $\hat{\mathcal{F}} : \{0,1\}^{\HW} \to \mathbb{R}^d$ must satisfy four
+requirements:
+
+\begin{enumerate}
+  \item \textbf{Predictive accuracy.}
+        $\|\hat{\mathcal{F}}(x) - \FEM(x)\|_2 < \epsilon_{\mathrm{surr}}$ on test structures.
+  \item \textbf{Gradient fidelity.}
+        $\|\nabla_{\xtilde}\hat{\mathcal{F}}(\xtilde) -
+           \nabla_{\xtilde}\FEM^{\mathrm{FD}}(\xtilde)\|_2 < \epsilon_{\mathrm{grad}}$.
+  \item \textbf{Calibrated uncertainty.}
+        Ensemble variance $\sigmahat^2(x)$ is calibrated to actual prediction error.
+  \item \textbf{Fast inference.}
+        ${<}\,10$~ms per evaluation on GPU.
+\end{enumerate}
+
+\subsection{Architecture}
+
+\begin{lstlisting}[caption={Physics-aware CNN surrogate.}]
+Input: x_tilde in [0,1]^{1 x 15 x 15}  (continuous relaxed layout)
+  |
+ConvBlock(1->32, 3x3, pad=1) + BN + ReLU
+  |
+ResBlock x 3  (32 ch)
+  |
+ConvBlock(32->64, 3x3, stride=2, pad=1)  -->  8x8
+  |
+ResBlock x 3  (64 ch)
+  |
+ConvBlock(64->128, 3x3, stride=2, pad=1)  -->  4x4
+  |
+ResBlock x 2  (128 ch)
+  |
+GlobalAveragePool -> Flatten -> Linear(128 -> 512)
+  |
+Linear(512 -> d)          # d = 4 x N_f
+  |
+Reshape -> Y_hat in R^{4 x N_f}   (S11, S21 mag + phase)
+\end{lstlisting}
+
+\NOTE{At $15\times15$ input with stride-2 downsampling, two stages produce $4\times4$
+feature maps.  Do not apply a third downsampling stage at this resolution—it collapses
+spatial information.}
+
+\subsection{Ensemble Training Protocol}
+
+Train $K = 5$ independent surrogates with different random seeds and data orderings.
+
+\begin{align}
+  \hat{\mu}(x)    &= \frac{1}{K}\sum_{k=1}^K \hat{\mathcal{F}}_k(x)
+  \label{eq:ensemble_mean}\\
+  \hat{\sigma}^2(x) &= \frac{1}{K-1}\sum_{k=1}^K
+                       \bigl(\hat{\mathcal{F}}_k(x) - \hat{\mu}(x)\bigr)^2
+  \label{eq:ensemble_var}
+\end{align}
+
+The ensemble variance $\hat{\sigma}^2$ provides calibrated uncertainty for the
+guidance mechanism (Section~\ref{sec:guidance}).
+
+\subsection{Gradient Fidelity Validation Protocol}
+\label{sec:grad_fidelity}
+
+The gradient $\nabla_{\xtilde}\hat{\mathcal{F}}(\xtilde)$ is critical.
+Validate it as follows:
+
+\begin{enumerate}
+  \item Sample 1000 test layouts $x^{(i)}$.
+  \item Compute surrogate gradient:
+        $g_s^{(i)} = \nabla_{\xtilde}\hat{\mathcal{F}}(\xtilde^{(i)})$.
+  \item Compute finite-difference EM gradient:
+        $g_{\mathrm{FD},j}^{(i)} =
+          \bigl(\FEM(x^{(i)} + \delta e_j) - \FEM(x^{(i)})\bigr)/\delta$.
+  \item Report \textbf{cosine similarity}
+        $\cos(g_s, g_{\mathrm{FD}})$
+        and \textbf{gradient magnitude ratio}
+        $\|g_s\|/\|g_{\mathrm{FD}}\|$.
+\end{enumerate}
+
+\textbf{Acceptance criterion:} Mean cosine similarity $> 0.7$ over the test set.
+Below this threshold, guidance will be unreliable or actively harmful.
+
+% ============================================================
+\section{Generative Topology Model — Architecture and Theory}
+\label{sec:generative}
+% ============================================================
+
+\subsection{Why Discrete Diffusion?}
+
+EM layouts are \emph{binary}.
+Gaussian (continuous) diffusion corrupts data by adding Gaussian noise—applied to
+$\{0,1\}$ values, intermediate states become meaningless real numbers.
+The correct inductive bias is a corruption process that operates natively in
+$\{0, 1\}$ (or an extended ternary state space).
+
+\begin{table}[H]
+\centering
+\caption{Comparison of generative frameworks for binary EM layouts.}
+\label{tab:gen_compare}
+\begin{tabular}{lp{5.5cm}l}
+\toprule
+\textbf{Framework} & \textbf{Core Mechanism} & \textbf{Suitability} \\
+\midrule
+D3PM (Austin et al., 2021)
+  & Categorical corruption (absorbing, uniform, or Gaussian)
+  & \textbf{High} \\
+MDLM / Masked Diffusion (Shi et al., 2024)
+  & Masking with BERT-style unmasking
+  & \textbf{High} \\
+Discrete Flow Matching (Campbell et al., 2024)
+  & Continuous-time flows over discrete space
+  & \textbf{Very High} \\
+Continuous DDPM on binary
+  & Gaussian corruption of $\{0,1\}$ values
+  & \textbf{Low — incorrect} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Recommendation:} Use \textbf{D3PM with absorbing-state corruption} as the
+primary framework.
+The absorbing (MASK) state corresponds to a MASK token providing clean interpolation
+between known and unknown pixels—directly interpretable as a conditional inpainting
+problem.
+
+\subsection{D3PM Forward Process (Correct Formulation)}
+
+For binary layouts, we extend to a ternary space $\{0, 1, m\}$ where $m$ is the MASK
+token.
+The forward transition matrix is:
+
+\begin{equation}
+  Q_t =
+  \begin{pmatrix}
+    1 - \beta_t & 0           & \beta_t \\
+    0           & 1 - \beta_t & \beta_t \\
+    0           & 0           & 1
+  \end{pmatrix}
+  \label{eq:Qt}
+\end{equation}
+
+The marginal corruption at time $t$ (probability a pixel is masked):
+
+\begin{equation}
+  \bar{q}(x_t = m \mid x_0) = 1 - (1 - \bar{\beta}_t),
+  \qquad
+  \bar{\beta}_t = 1 - \prod_{s=1}^t (1 - \beta_s)
+  \label{eq:marginal}
+\end{equation}
+
+At $t = 0$: all pixels are known.
+At $t = T$: all pixels are MASK.
+This gives a clean, interpretable masking schedule.
+
+\paragraph{Reverse posterior (used in the ELBO):}
+
+\begin{equation}
+  q(x_{t-1} \mid x_t, x_0)
+  = \frac{q(x_t \mid x_{t-1})\; q(x_{t-1} \mid x_0)}{q(x_t \mid x_0)}
+  \label{eq:reverse_posterior}
+\end{equation}
+
+This is analytically tractable for the absorbing transition.
+
+\subsection{D3PM Training Objective (ELBO)}
+
+\begin{equation}
+  -\mathrm{ELBO}
+  = \underbrace{\mathbb{E}\bigl[-\log p_\theta(x_0 \mid x_1)\bigr]}_{\text{reconstruction}}
+  + \sum_{t=2}^{T}
+    \underbrace{
+      \mathbb{E}\bigl[
+        D_{\mathrm{KL}}\!\bigl(
+          q(x_{t-1} \mid x_t, x_0)
+          \;\|\;
+          p_\theta(x_{t-1} \mid x_t)
+        \bigr)
+      \bigr]
+    }_{\text{denoising objective at timestep } t}
+  \label{eq:elbo}
+\end{equation}
+
+The model $p_\theta(x_{t-1} \mid x_t, \cy)$ predicts a categorical distribution over
+$\{0, 1, m\}$ for each pixel, conditioned on the noisy layout and spectral embedding.
+
+\subsection{Denoiser Architecture}
+
+\begin{lstlisting}[caption={Topology-Aware U-Net with spectral conditioning.}]
+Input: x_t in {0,1,m}^{15x15}  (learned 3D pixel embedding)
+       c_y  in R^m              (spectral conditioning vector)
+       t                        (timestep: sinusoidal + MLP)
+
+Encoder:
+  E0: Conv(embed->64, 3x3, pad=1) + AdaLN(c_y,t) + GELU
+  E1: ResBlock(64, c_y, t) x 2
+  E2: Conv(64->128, 3x3, stride=2) + AdaLN(c_y,t)  # -> 8x8
+  E3: ResBlock(128, c_y, t) x 2
+
+Bottleneck:
+  B:  SelfAttention(128) + AdaLN(c_y,t)   # 8x8 = 64 tokens
+
+Decoder:
+  D3: ResBlock(128, c_y, t) x 2
+  D2: TransposeConv(128->64, 2x2, stride=2, output_size=(15,15))
+      + concat(E1) + AdaLN(c_y,t)
+  D1: ResBlock(64, c_y, t) x 2
+
+Output:
+  Linear(64 -> 3)    # logits over {0, 1, MASK} per pixel
+  Softmax -> categorical distribution
+\end{lstlisting}
+
+\NOTE{\textbf{Odd-resolution issue.}
+The $15 \to 8$ stride-2 downsampling followed by upsampling back to $15\times15$
+requires explicit \texttt{output\_size=(15,15)} in \texttt{TransposeConv2d}.
+Always set this parameter explicitly to avoid off-by-one errors.}
+
+\subsection{AdaLN Conditioning Details}
+
+For each AdaLN layer with conditioning $(\cy, t)$:
+
+\begin{equation}
+  \mathrm{AdaLN}(h, \cy, t)
+  = \bigl(1 + \gamma([\cy;\, e_t])\bigr)
+    \cdot \mathrm{LayerNorm}(h)
+    + \beta([\cy;\, e_t])
+  \label{eq:adaLN2}
+\end{equation}
+
+where $[\cy;\, e_t] \in \mathbb{R}^{m + d_t}$ is the concatenated condition and
+$\gamma, \beta$ are learned linear projections.
+
+% ============================================================
+\section{Classifier-Free Guidance in Discrete Space}
+\label{sec:cfg}
+% ============================================================
+
+\subsection{The V1 Error}
+
+\WARN{
+Version~1 copied the continuous DDPM CFG formula verbatim:
+\[
+  \hat{\epsilon} = \epsilon_\theta(x_t, t, \emptyset)
+    + w\bigl(\epsilon_\theta(x_t, t, \cy) - \epsilon_\theta(x_t, t, \emptyset)\bigr)
+\]
+\textbf{This is mathematically wrong for discrete diffusion.}
+In continuous DDPM, $\epsilon_\theta$ predicts a Gaussian noise vector and guidance
+modifies the Gaussian mean.
+In discrete diffusion there is no noise vector—the model predicts a
+\emph{categorical distribution} over pixel states.
+Modifying a noise vector in a categorical distribution is undefined.
+}
+
+\subsection{Correct CFG for Discrete Diffusion}
+
+The correct formulation operates at the \textbf{log-probability level}.
+
+Let $p_\theta(x_0 \mid x_t, \cy)$ and $p_\theta(x_0 \mid x_t, \emptyset)$ be the
+conditional and unconditional denoiser distributions respectively.
+The guided distribution is:
+
+\begin{equation}
+  \log \tilde{p}_\theta(x_0 \mid x_t, \cy)
+  = (1 + w)\log p_\theta(x_0 \mid x_t, \cy)
+  - w\log p_\theta(x_0 \mid x_t, \emptyset)
+  \label{eq:disc_cfg}
+\end{equation}
+
+normalised to a valid probability.
+Since pixels are predicted independently (per-pixel categorical), this factorises as:
+
+\begin{equation}
+  \tilde{p}_\theta(x_0^{(ij)} \mid x_t, \cy)
+  \propto
+  p_\theta(x_0^{(ij)} \mid x_t, \cy)^{1+w}
+  \cdot
+  p_\theta(x_0^{(ij)} \mid x_t, \emptyset)^{-w}
+  \label{eq:disc_cfg_factored}
+\end{equation}
+
+\FIX{
+Training uses condition dropout probability $p_{\mathrm{drop}} = 0.1$--$0.2$:
+during training, the spectral condition $\cy$ is randomly replaced by a null embedding
+$\emptyset$.
+At inference, both the conditional and unconditional forward passes are run and combined
+via~\eqref{eq:disc_cfg_factored}.
+}
+
+\subsection{Guidance Scale Selection}
+
+\begin{table}[H]
+\centering
+\caption{Effect of CFG guidance weight $w$.}
+\label{tab:cfg_w}
+\begin{tabular}{cll}
+\toprule
+$w$ & Behaviour & Use Case \\
+\midrule
+$0$   & Unconditional sampling (max diversity)      & Exploration \\
+$1$--$3$ & Balanced (recommended starting point)   & General synthesis \\
+$2$--$4$ & High spectral fidelity (expected optimal for RF) & Precise specs \\
+$>5$  & Strong guidance (risk of mode collapse)     & Avoid unless necessary \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Physics-Guided Sampling}
+\label{sec:guidance}
+% ============================================================
+
+\subsection{The V1 Error}
+
+\WARN{
+Version~1 proposed:
+\[
+  \hat{\epsilon} = \tilde{\epsilon}
+    - \alpha_t \nabla_{x_t} \mathcal{L}_{\mathrm{physics}}
+\]
+\textbf{This is undefined.}
+$x_t \in \{0, 1, m\}$ is a discrete/ternary token.
+Gradients of continuous functions w.r.t.\ discrete tokens are not defined.
+}
+
+\subsection{Corrected: Guidance Through Predicted $\hat{x}_0$}
+
+\paragraph{Key insight.}
+The denoiser predicts the clean layout $\hat{x}_0 = f_\theta(x_t, t, \cy)$.
+If we take the \emph{expected value} under the predicted distribution, we get a
+continuous quantity:
+
+\begin{equation}
+  \hat{x}_0 = \mathbb{E}_{p_\theta(x_0 \mid x_t, \cy)}[x_0]
+  = \sum_{v \in \{0,1,m\}} v \cdot p_\theta(x_0 = v \mid x_t, \cy)
+  \label{eq:x0hat}
+\end{equation}
+
+This gives $\hat{x}_0 \in [0,1]^{\HW}$ (the per-pixel probability of being conductor),
+which is \emph{differentiable} with respect to the denoiser parameters and logits.
+
+\paragraph{Physics loss on predicted $\hat{x}_0$:}
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{physics}}
+  = \left\|\hat{\mathcal{F}}(\hat{x}_0) - \ystar\right\|_2^2
+  \label{eq:lphysics}
+\end{equation}
+
+\paragraph{Gradient-guided update to the logits:}
+
+Let $\ell_t \in \mathbb{R}^{H \times W \times 3}$ be the raw denoiser logits.
+The physics guidance modifies these logits, not $x_t$:
+
+\begin{equation}
+  \tilde{\ell}_t
+  = \ell_t
+  - \alpha_t \nabla_{\ell_t}
+    \mathcal{L}_{\mathrm{physics}}\!\left(\hat{x}_0(\ell_t),\, \ystar\right)
+  \label{eq:logit_guidance}
+\end{equation}
+
+where $\hat{x}_0(\ell_t) = \sigma(\ell_t^{[1]})$ (probability of pixel $= 1$ from
+softmax of logits).
+This is differentiable end-to-end:
+$\ell_t \;\to\; \hat{x}_0 \;\to\; \hat{\mathcal{F}}(\hat{x}_0) \;\to\;
+\mathcal{L}_{\mathrm{physics}}$.
+
+\subsection{Uncertainty-Weighted Guidance}
+
+\begin{equation}
+  \alpha_t
+  = \frac{\alphamax}{\sigmahat(\hat{x}_0) + \epsilon}
+    \cdot \eta_t,
+  \qquad
+  \eta_t = \left(1 - \frac{t}{T}\right)^2
+  \label{eq:alpha_t}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $\sigmahat(\hat{x}_0) = \sqrt{\mathrm{mean}_f(\hat{\sigma}^2_{\mathrm{ensemble}}(\hat{x}_0))}$
+        is the mean ensemble uncertainty across frequencies,
+  \item $\eta_t = (1 - t/T)^2$ is a timestep-decay schedule (guidance activates as
+        denoising completes),
+  \item $\alphamax$ is a hyperparameter controlling maximum step size, and
+  \item $\epsilon = 0.01$ prevents division by zero.
+\end{itemize}
+
+This formula guarantees:
+\begin{enumerate}
+  \item No guidance at early timesteps (noisy layouts → meaningless surrogate evaluations).
+  \item Strong guidance at late timesteps (topology is nearly crystallised → accurate surrogate).
+  \item Automatic step reduction when the surrogate is uncertain (prevents adversarial guidance).
+\end{enumerate}
+
+\subsection{Late-Stage Activation Threshold}
+
+Guidance activates only when $t < \tthresh$.
+Expected optimal: $\tthresh = 0.3T$--$0.5T$.
+
+\paragraph{Rationale.}
+At early timesteps ($t > \tthresh$), most pixels are MASK tokens.
+The predicted $\hat{x}_0$ is highly uncertain and the surrogate gradient points in a
+physically meaningless direction.
+At late timesteps, the topology is largely decided and small corrections for spectral
+accuracy are effective and reliable.
+
+\subsection{Complete Physics-Guided Sampling Algorithm}
+
+\begin{algorithm}[H]
+\caption{Physics-Guided D3PM Reverse Sampling}
+\label{alg:sampling}
+\KwIn{Target spec $\ystar$, spectral embedding $\cy$, trained denoiser $f_\theta$,
+      trained surrogate ensemble $\hat{\mathcal{F}}$, guidance weight $w$,
+      threshold $\tthresh$}
+\KwOut{Generated binary layout $x_0$}
+
+$x_T \leftarrow$ all MASK tokens\;
+
+\For{$t = T, T-1, \ldots, 1$}{
+  Compute logits: $\ell_t \leftarrow f_\theta(x_t,\, t,\, \cy)$\;
+  Compute $\hat{x}_0 \leftarrow \sigma(\ell_t^{[1]})$ \tcp*{predicted layout}
+
+  \If{$t < \tthresh$}{
+    $g \leftarrow \nabla_{\ell_t}\mathcal{L}_{\mathrm{guided}}(\hat{x}_0)$\;
+    $\tilde{\ell}_t \leftarrow \ell_t - \alpha_t\, g$ \tcp*{physics + topo guidance}
+  }\Else{
+    $\tilde{\ell}_t \leftarrow \ell_t$\;
+  }
+
+  Apply CFG via eq.~\eqref{eq:disc_cfg_factored}\;
+  Sample: $x_{t-1} \sim p_\theta(x_{t-1} \mid x_t,\, \tilde{\ell}_t)$\;
+}
+\Return $x_0$\;
+\end{algorithm}
+
+% ============================================================
+\section{Differentiable Topology Constraints}
+\label{sec:topology}
+% ============================================================
+
+\subsection{Why Post-Hoc Repair Fails}
+
+Every prior neural EM inverse design method either ignores connectivity entirely or
+applies graph repair after generation.
+Post-hoc repair \emph{breaks differentiability}: the repair step cannot be
+backpropagated through, so the generative model never learns to avoid disconnected
+topologies in the first place.
+The fix is to embed topology validity as a differentiable objective \emph{inside} the
+generation loop.
+
+\subsection{Connectivity Discriminator — Training}
+
+\paragraph{Supervision signal.}
+For each layout $x$ in the dataset, run DFS to determine:
+\begin{itemize}
+  \item $y_{\mathrm{conn}} = 1$: Layout is connected (port~1 $\to$ port~2 path exists,
+        no isolated conductor islands).
+  \item $y_{\mathrm{conn}} = 0$: Layout is disconnected or has no inter-port path.
+\end{itemize}
+
+\paragraph{Architecture.}
+\begin{lstlisting}[caption={Connectivity discriminator architecture.}]
+Input: x in [0,1]^{15x15}
+  |
+Conv(1->32, 3x3) -> BN -> ReLU
+  |
+ResBlock x 3  (32 ch)
+  |
+GlobalAveragePool
+  |
+Linear(32->16) -> ReLU -> Linear(16->1) -> Sigmoid
+  |
+Output: D_conn(x) in [0,1]
+\end{lstlisting}
+
+\paragraph{Loss.}
+Binary cross-entropy with balanced class weights.
+Disconnected structures are rare in the procedural dataset, so explicitly oversample
+them when training the discriminator.
+
+\subsection{Connectivity Guidance During Sampling}
+
+Add a topology loss to the guided objective:
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{topo}} = -\log D_{\mathrm{conn}}(\hat{x}_0)
+  \label{eq:ltopo}
+\end{equation}
+
+The combined guidance loss at each step:
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{guided}}
+  = \mathcal{L}_{\mathrm{physics}}
+  + \lambda_{\mathrm{topo}}\, \mathcal{L}_{\mathrm{topo}}
+  + \lambda_{\mathrm{mfg}}\, \mathcal{L}_{\mathrm{mfg}}
+  \label{eq:lguided}
+\end{equation}
+
+Apply a ramp-up schedule on $\lambda_{\mathrm{topo}}$: weak at early timesteps
+(layout is mostly MASK), strong at late timesteps (topology nearly decided).
+
+\subsection{Port Connectivity Encoding}
+
+Port positions are fixed by design (e.g., left-edge centre pixel = port~1,
+right-edge centre pixel = port~2).
+Encode port positions as a second binary channel appended to the layout:
+
+\begin{equation}
+  x_{\mathrm{aug}} = [x,\, p] \in \{0,1,\textsc{mask}\}^{2 \times 15 \times 15}
+\end{equation}
+
+where $p \in \{0,1\}^{15 \times 15}$ has $1$s only at port pixels.
+This informs all components—surrogate, discriminator, denoiser—of the port structure.
+
+% ============================================================
+\section{Differentiable Binarisation}
+\label{sec:binarisation}
+% ============================================================
+
+\subsection{The Discretisation Problem}
+
+Hard thresholding ($x = \mathbbm{1}[\xtilde > 0.5]$) is not differentiable—no gradient
+flows back through it.
+Yet the surrogate and connectivity discriminator both require a real-valued relaxation
+for gradient-based guidance.
+
+\subsection{Annealed Gumbel-Sigmoid Binarisation}
+
+Use the Gumbel-Sigmoid trick (Maddison et al., 2016; Jang et al., 2016) with
+temperature annealing:
+
+\begin{equation}
+  \xtilde_{ij}
+  = \sigma\!\left(
+      \frac{\log p_{ij} - \log(1 - p_{ij}) + g_{ij}}{\tau_t}
+    \right)
+  \label{eq:gumbel}
+\end{equation}
+
+where:
+\begin{itemize}
+  \item $p_{ij} \in [0,1]$ is the predicted probability of pixel $(i,j)$ being conductor,
+  \item $g_{ij} \sim \mathrm{Gumbel}(0,1)$ provides reparameterisation noise, and
+  \item $\tau_t > 0$ is the temperature, annealed:
+        $\tau_t = \tau_{\max} \cdot (\tau_{\min}/\tau_{\max})^{t/T}$.
+\end{itemize}
+
+\paragraph{At inference.}
+$\tau \to 0 \;\Rightarrow\; \xtilde_{ij} \to \mathbbm{1}[p_{ij} > 0.5]$
+(hard binarisation).
+
+\paragraph{During training.}
+$\tau = \tau_{\mathrm{initial}} = 1.0$, so soft gradients flow through.
+
+\paragraph{Straight-Through Estimator (STE) as fallback.}
+Forward pass uses hard binarisation;
+backward pass passes gradients as if $x_{ij} = \xtilde_{ij}$.
+Less principled but highly effective for binary variables in practice.
+
+\NOTE{\textbf{Recommendation.}
+Use Gumbel-Sigmoid with temperature annealing for the main surrogate training.
+Use STE for gradient guidance during inference (simpler, no Gumbel noise to tune).}
+
+% ============================================================
+\section{Manufacturability Constraints}
+\label{sec:mfg}
+% ============================================================
+
+\subsection{DRC Rules for Binary Pixel Layouts}
+
+At the physical scale of the $15\times15$ grid (pixel size $\Delta$~mm):
+
+\begin{table}[H]
+\centering
+\caption{Manufacturing design rules and their enforcement strategies.}
+\label{tab:drc}
+\begin{tabular}{lll}
+\toprule
+\textbf{Constraint} & \textbf{Definition} & \textbf{Enforcement} \\
+\midrule
+Minimum trace width  & $w_{\min} = 2$ pixels        & Penalise isolated single-pixel conductors \\
+Minimum spacing      & $s_{\min} = 2$ pixels        & Penalise conductors $<2$ pixels apart \\
+No floating islands  & No isolated conductor clusters & Connectivity discriminator \\
+No acute corners     & No $1\times1$ corner conductors & Morphological erosion check \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Differentiable DRC Loss}
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{mfg}}
+  = \lambda_1\,\mathcal{L}_{\mathrm{width}}
+  + \lambda_2\,\mathcal{L}_{\mathrm{spacing}}
+  + \lambda_3\,\mathcal{L}_{\mathrm{islands}}
+  \label{eq:lmfg}
+\end{equation}
+
+\paragraph{Minimum width loss} (penalise thin traces):
+\begin{equation}
+  \mathcal{L}_{\mathrm{width}}
+  = \sum_{(i,j)} \xtilde_{ij}
+    \cdot \max\!\left(0,\; 1 - \sum_{(i',j') \in \mathcal{N}(i,j)} \xtilde_{i'j'}\right)
+  \label{eq:lwidth}
+\end{equation}
+
+where $\mathcal{N}(i,j)$ is the 4-connected neighbourhood.
+
+\paragraph{Minimum spacing loss} (penalise nearby isolated conductors):
+\begin{equation}
+  \mathcal{L}_{\mathrm{spacing}}
+  = \sum_{(i,j)} \xtilde_{ij}
+    \cdot (1 - \xtilde_{\mathrm{eroded},(i,j)})
+    \cdot D_{\mathrm{nearest}}(\xtilde,\, i,\, j)
+  \label{eq:lspacing}
+\end{equation}
+
+where $\xtilde_{\mathrm{eroded}}$ is a differentiable morphological erosion.
+
+\paragraph{Islands loss.}
+Directly reuse the connectivity discriminator:
+$\mathcal{L}_{\mathrm{islands}} = -\log D_{\mathrm{conn}}(\hat{x}_0)$.
+
+% ============================================================
+\section{Full Training and Inference Objectives}
+\label{sec:training}
+% ============================================================
+
+\subsection{Surrogate Training Objective}
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{surrogate}}
+  = \underbrace{\|\yhat - \mathbf{y}\|_2^2}_{\mathrm{MSE}}
+  + \lambda_{\mathrm{pass}} \underbrace{\mathcal{L}_{\mathrm{pass}}}_{\mathrm{passivity}}
+  + \lambda_{\mathrm{recip}} \underbrace{\mathcal{L}_{\mathrm{recip}}}_{\mathrm{reciprocity}}
+  + \lambda_{KK} \underbrace{\mathcal{L}_{KK}}_{\mathrm{causality}}
+  + \lambda_{\mathrm{smooth}} \underbrace{\mathcal{L}_{\mathrm{smooth}}}_{\mathrm{smoothness}}
+  \label{eq:lsurr2}
+\end{equation}
+
+\subsection{Denoiser Training Objective}
+
+\begin{equation}
+  \mathcal{L}_{\mathrm{denoiser}}
+  = \underbrace{-\mathrm{ELBO}}_{\text{D3PM ELBO}}
+  + \lambda_{\mathrm{aux}}
+    \underbrace{\mathcal{L}_{x_0\,\mathrm{pred}}}_{\text{auxiliary } x_0 \text{ prediction}}
+  \label{eq:ldenoiser}
+\end{equation}
+
+The auxiliary $x_0$ prediction loss directly penalises error in the expected-$\hat{x}_0$
+output, providing a clean gradient signal for the surrogate guidance pathway.
+
+\subsection{Inference Algorithm (Complete)}
+
+At each denoising step $t$ from $T$ to $1$:
+\begin{enumerate}
+  \item Compute denoiser output: $\ell_t = f_\theta(x_t, t, \cy)$.
+  \item Compute $\hat{x}_0 = \mathrm{softmax}(\ell_t)[:,:,1]$
+        (probability of pixel $= 1$).
+  \item If $t < \tthresh$: compute guidance gradient
+        $g = \nabla_{\ell_t}\mathcal{L}_{\mathrm{guided}}(\hat{x}_0)$.
+  \item Apply guided logits: $\tilde{\ell}_t = \ell_t - \alpha_t\, g$.
+  \item Sample $x_{t-1} \sim p_\theta(x_{t-1} \mid x_t, \tilde{\ell}_t)$
+        using the reverse posterior.
+\end{enumerate}
+
+\subsection{Loss Weight Hyperparameters}
+
+\begin{table}[H]
+\centering
+\caption{Starting loss weights (to be tuned via ablation).}
+\label{tab:lossweights}
+\begin{tabular}{lcl}
+\toprule
+\textbf{Weight} & \textbf{Value} & \textbf{Scope} \\
+\midrule
+$\lambda_{\mathrm{pass}}$   & 0.10 & Surrogate \\
+$\lambda_{\mathrm{recip}}$  & 0.05 & Surrogate \\
+$\lambda_{KK}$              & 0.05 & Surrogate \\
+$\lambda_{\mathrm{smooth}}$ & 0.02 & Surrogate \\
+$\lambda_{\mathrm{topo}}$   & 1.00 & Guided sampling \\
+$\lambda_{\mathrm{mfg}}$    & 0.50 & Guided sampling \\
+$\alphamax$                 & 0.10 & Guidance step size \\
+$w$ (CFG)                   & 2.00 & Inference scale \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Vulnerability Analysis and Mitigations}
+\label{sec:vulnerabilities}
+% ============================================================
+
+\subsection{Critical Vulnerabilities — V1 Gaps Now Resolved}
+
+\begin{tcolorbox}[fixbox, title=V-CRIT-1: CFG Formulation for Discrete Diffusion]
+\textbf{V1 state:} Continuous CFG formula applied verbatim to discrete diffusion.\\
+\textbf{Problem:} Mathematically incorrect; modifying a noise vector in discrete space
+is undefined.\\
+\textbf{V2 fix:} Log-probability-domain CFG (Section~\ref{sec:cfg}).\\
+\textbf{Status:} \textcolor{okgreen}{RESOLVED}
+\end{tcolorbox}
+
+\begin{tcolorbox}[fixbox, title=V-CRIT-2: Gradient Guidance on Discrete Variables]
+\textbf{V1 state:}
+$\hat{\epsilon} = \tilde{\epsilon} - \alpha_t \nabla_{x_t}\mathcal{L}_{\mathrm{physics}}$
+applied to discrete $x_t$.\\
+\textbf{Problem:} $x_t \in \{0,1,m\}$ — gradients undefined.\\
+\textbf{V2 fix:} Guidance applied to denoiser logits via predicted $\hat{x}_0$
+(Section~\ref{sec:guidance}).\\
+\textbf{Status:} \textcolor{okgreen}{RESOLVED}
+\end{tcolorbox}
+
+\begin{tcolorbox}[fixbox, title=V-CRIT-3: Missing Kramers--Kronig Causality]
+\textbf{V1 state:} No causality constraint in surrogate training.\\
+\textbf{Problem:} Surrogate can learn physically impossible non-causal responses.\\
+\textbf{V2 fix:} KK loss added to surrogate objective (Section~\ref{sec:physics}).\\
+\textbf{Status:} \textcolor{okgreen}{RESOLVED}
+\end{tcolorbox}
+
+\begin{tcolorbox}[fixbox, title=V-CRIT-4: Incomplete Passivity Constraint]
+\textbf{V1 state:} $|S_{11}|^2 + |S_{21}|^2 \leq 1$ (2-port scalar only).\\
+\textbf{Problem:} Fails for multi-port extension; does not use matrix form.\\
+\textbf{V2 fix:} Full matrix passivity constraint via maximum eigenvalue
+(Section~\ref{sec:smatrix}).\\
+\textbf{Status:} \textcolor{okgreen}{RESOLVED}
+\end{tcolorbox}
+
+\subsection{Major Vulnerabilities — Active Mitigations Required}
+
+\paragraph{V-MAJ-1: Resolution Limitation ($15\times15$).}
+\textit{Problem:} Real structures often need $32\times32$ to $128\times128$.\\
+\textit{Mitigation:}
+The frequency--resolution co-design table (Section~\ref{sec:resfcodesign}) shows that
+$15\times15$ is valid for 2--18~GHz on 5--10~mm substrates—covering cellular, WiFi,
+and satellite bands.
+Include a $32\times32$ scaling experiment in the evaluation.
+
+\paragraph{V-MAJ-2: Surrogate Gradient Fidelity.}
+\textit{Problem:} CNN surrogate gradients near topology discontinuities may be noisy.\\
+\textit{Mitigation:}
+\begin{itemize}
+  \item Surrogate trained on continuous relaxed inputs (not hard binary).
+  \item Explicit gradient fidelity validation (Section~\ref{sec:grad_fidelity}).
+  \item Gradient clipping: $\|g\|_2 \leq g_{\max} = 1.0$.
+  \item Uncertainty-weighted guidance automatically reduces step size when uncertain.
+\end{itemize}
+
+\paragraph{V-MAJ-3: Dataset Simulation Compute.}
+\textit{Problem:} 100k--500k OpenEMS simulations $\times$ 1--3~min = potentially months
+on a single machine.\\
+\textit{Mitigation:} Parallelise across 50--100 CPU cores (cloud HPC).
+At 50 cores: $\sim$5.6~days for 200k structures.
+See Section~\ref{sec:compute} for full compute budget.
+
+\paragraph{V-MAJ-4: Dataset Distributional Bias.}
+\textit{Problem:} Procedural generation may not cover all relevant topologies.\\
+\textit{Mitigation:}
+Include 10\% ``challenge structures'' from random-binary-plus-repair.
+Evaluate on held-out primitive types not seen during training.
+Report structure uniqueness and spectral diversity metrics.
+
+\paragraph{V-MAJ-5: Multi-Objective Loss Instability.}
+\textit{Problem:} Fixed $\lambda$ weights may not balance well across training phases.\\
+\textit{Mitigation:}
+Use GradNorm (Chen et al., 2018) to normalise gradient magnitudes across losses,
+or a simple schedule that gradually increases DRC constraint weight.
+
+\subsection{Minor Vulnerabilities}
+
+\begin{itemize}
+  \item \textbf{V-MIN-1: Missing neural baselines.}
+        Add conditional VAE and conditional GAN baselines (now in evaluation plan,
+        Section~\ref{sec:eval}).
+  \item \textbf{V-MIN-2: No multi-port extension.}
+        Explicitly scope this work as 2-port in AAAI submission;
+        include multi-port extension as future work with a clear mathematical path.
+  \item \textbf{V-MIN-3: No formal diversity metric.}
+        Report mean pairwise Hamming distance between generated layouts for the same
+        $\ystar$, and a Wasserstein-based feature diversity score.
+\end{itemize}
+
+% ============================================================
+\section{Evaluation Protocol}
+\label{sec:eval}
+% ============================================================
+
+\subsection{Baselines}
+
+\begin{table}[H]
+\centering
+\caption{Baselines compared against PIXEL.}
+\label{tab:baselines}
+\begin{tabular}{lll}
+\toprule
+\textbf{Baseline} & \textbf{Description} & \textbf{Reference} \\
+\midrule
+Det-CNN       & Deterministic CNN inverse regressor          & Standard approach \\
+Det-CNN + GA  & CNN initialisation + genetic algorithm       & Common EDA pipeline \\
+cVAE          & Conditional VAE with spectral encoder        & Added in V2 \\
+cGAN          & Conditional GAN with spectral discriminator  & Added in V2 \\
+BO            & Bayesian optimisation over layout space      & Frazier (2018) \\
+Diff-TO       & Differentiable topology optimisation         & Sigmund et al.\ (2003) \\
+\textbf{PIXEL}& Physics-guided discrete diffusion            & \textbf{This work} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Primary Metrics: Spectral Accuracy}
+
+All metrics are computed after \textbf{full-wave EM verification}
+(OpenEMS simulation of the generated layout)—not from surrogate predictions.
+
+\begin{table}[H]
+\centering
+\caption{Spectral accuracy metrics (evaluated on 1000 test specifications).}
+\label{tab:metrics_spec}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Metric} & \textbf{Definition} \\
+\midrule
+$S_{21}$ MSE & $\frac{1}{N_f}\sum_f (|S_{21}^{\mathrm{gen}}| - |S_{21}^*|)^2$ \\
+$S_{11}$ MSE & $\frac{1}{N_f}\sum_f (|S_{11}^{\mathrm{gen}}| - |S_{11}^*|)^2$ \\
+Resonance freq.\ error & $|f_r^{\mathrm{gen}} - f_r^*|$ for identified resonances \\
+Passband error  & MSE within specified passband \\
+Stopband error  & Deviation from target $S_{21}$ in stopband \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Secondary Metrics: Topological Validity}
+
+\begin{table}[H]
+\centering
+\caption{Topology and manufacturability metrics.}
+\label{tab:metrics_topo}
+\begin{tabular}{lll}
+\toprule
+\textbf{Metric} & \textbf{Definition} & \textbf{Target} \\
+\midrule
+Connectivity yield   & Fraction of generated layouts that are connected  & $>0.95$ \\
+Island-free rate     & Fraction with no floating conductors              & $>0.98$ \\
+DRC pass rate        & Fraction satisfying all manufacturing constraints & $>0.90$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Diversity Metrics}
+
+\begin{table}[H]
+\centering
+\caption{Diversity metrics.}
+\label{tab:metrics_div}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Metric} & \textbf{Definition} \\
+\midrule
+Intra-spec diversity
+  & Mean pairwise pixel-wise Hamming distance between samples generated for the same $\ystar$ \\
+Inter-spec coverage
+  & Range of distinct layout topologies generated across the full $\ystar$ test set \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Efficiency Metrics}
+
+\begin{table}[H]
+\centering
+\caption{Efficiency metrics.}
+\label{tab:metrics_eff}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Metric} & \textbf{Definition} \\
+\midrule
+Inference time           & Wall-clock time per generated layout (GPU) \\
+EM verification calls    & Number of full-wave simulations per final design \\
+Dataset efficiency       & Accuracy as a function of training set size \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Ablation Study Design}
+
+\begin{table}[H]
+\centering
+\caption{Ablation study: each row removes or replaces one component.}
+\label{tab:ablation}
+\begin{tabular}{lll}
+\toprule
+\textbf{Ablation} & \textbf{What Is Removed/Changed} & \textbf{Tests} \\
+\midrule
+No physics guidance        & $\alpha_t = 0$                    & Effect of physics guidance \\
+No uncertainty weighting   & $\sigmahat = \mathrm{const}$      & Effect of calibrated guidance \\
+No topology constraint     & $\lambda_{\mathrm{topo}} = 0$    & Effect of connectivity discriminator \\
+No DRC loss                & $\lambda_{\mathrm{mfg}} = 0$     & Effect of manufacturability \\
+Continuous diffusion       & Replace D3PM with DDPM            & Discrete vs.\ continuous \\
+No KK loss                 & $\lambda_{KK} = 0$               & Effect of causality constraint \\
+Random dataset             & Replace procedural with random binary & Dataset quality \\
+Single surrogate           & Replace ensemble with single model    & Uncertainty estimation \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Related Work and Differentiation}
+\label{sec:related}
+% ============================================================
+
+\subsection{Inverse EM Design}
+
+\begin{table}[H]
+\centering
+\caption{Prior work on inverse EM / nanophotonic design.}
+\label{tab:related_em}
+\begin{tabular}{llp{5cm}}
+\toprule
+\textbf{Work} & \textbf{Method} & \textbf{Limitation vs.\ PIXEL} \\
+\midrule
+Liu et al.\ (2018)       & Tandem network             & Deterministic; no topology handling \\
+Jiang et al.\ (2019)     & cGAN for nanophotonics     & Continuous image; no physics constraints \\
+So et al.\ (2020)        & DNN for metasurfaces       & Single output; no diversity \\
+Unni et al.\ (2021)      & VAE for photonic design    & Latent space not physics-constrained \\
+Kudyshev et al.\ (2021)  & RL for EM design           & No topology or manufacturability \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Discrete Diffusion}
+
+\begin{table}[H]
+\centering
+\caption{Key discrete diffusion works and their relation to PIXEL.}
+\label{tab:related_diff}
+\begin{tabular}{lp{4.5cm}p{4.5cm}}
+\toprule
+\textbf{Work} & \textbf{Contribution} & \textbf{Relation to PIXEL} \\
+\midrule
+D3PM (Austin et al., 2021)
+  & Discrete denoising diffusion
+  & PIXEL uses D3PM as backbone \\
+MDLM (Shi et al., 2024)
+  & Masked diffusion for language
+  & Alternative backbone \\
+Discrete Flow Matching (Campbell et al., 2024)
+  & Flow matching over discrete spaces
+  & Future upgrade path \\
+GDSS (Jo et al., 2022)
+  & Graph discrete diffusion for molecules
+  & Conceptually related; different domain \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Physics-Guided Generative Models}
+
+\begin{table}[H]
+\centering
+\caption{Physics-guided generative models and their relation to PIXEL.}
+\label{tab:related_phys}
+\begin{tabular}{lp{4.5cm}p{4.5cm}}
+\toprule
+\textbf{Work} & \textbf{Contribution} & \textbf{Relation to PIXEL} \\
+\midrule
+DPS (Chung et al., 2022)
+  & Diffusion posterior sampling for inverse problems
+  & PIXEL extends this to discrete spaces \\
+DiffSBDD (Schneuing et al., 2022)
+  & Structure-based drug design with diffusion
+  & Analogous physics guidance; different domain \\
+DiT (Peebles \& Xie, 2022)
+  & Diffusion Transformer with AdaLN conditioning
+  & PIXEL adopts AdaLN conditioning \\
+Dhariwal \& Nichol (2021)
+  & Classifier guidance in continuous diffusion
+  & PIXEL correctly adapts to discrete space \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{PIXEL's Unique Position}
+
+The unique combination that \emph{no prior work achieves}:
+\begin{enumerate}
+  \item Discrete diffusion (not continuous) over binary structural layouts.
+  \item Physics guidance via differentiable EM surrogate (not just visual/chemical properties).
+  \item Topology validity as a differentiable constraint inside the generation loop.
+  \item Uncertainty-weighted guidance step size (not fixed or timestep-only schedule).
+  \item Fabrication DRC integrated into the generation objective.
+\end{enumerate}
+
+% ============================================================
+\section{AAAI-2027 Positioning Strategy}
+\label{sec:aaai}
+% ============================================================
+
+\subsection{Fit Analysis}
+
+AAAI-2027 is appropriate because:
+\begin{enumerate}
+  \item \textbf{AI methodology.}
+        The paper contributes to \emph{discrete diffusion for combinatorial inverse
+        problems}—this is a methodological advance independent of the EM application.
+  \item \textbf{Scientific AI.}
+        AAAI has a strong record of publishing physics-informed AI
+        (materials discovery, drug design, protein folding).
+        EM inverse design fits squarely in this paradigm.
+  \item \textbf{Novelty and completeness.}
+        The paper can be fully self-contained with theory, method, dataset, and evaluation.
+\end{enumerate}
+
+\subsection{Recommended Paper Framing}
+
+\begin{tcolorbox}[notebox, title=Primary AAAI Abstract Frame]
+\textit{We present PIXEL: a physics-guided discrete diffusion framework for constrained
+inverse design of electromagnetic structures.
+PIXEL learns a probabilistic prior over manufacturable RF topologies and guides reverse
+sampling with differentiable EM physics via an uncertainty-weighted ensemble surrogate.}
+\end{tcolorbox}
+
+\textbf{Avoid:} Framing as an EDA/circuit design paper.
+AAAI reviewers are AI researchers; the EM design is the application, not the
+contribution.
+
+\paragraph{Message architecture.}
+\begin{enumerate}
+  \item Problem: Inverse EM design is ill-posed $\to$ probabilistic formulation required.
+  \item Method: D3PM + physics guidance + topology constraints.
+  \item Technical novelty: Corrected discrete CFG + uncertainty-weighted guidance +
+        differentiable topology.
+  \item Empirical: Outperforms all deterministic baselines across all metrics.
+  \item Impact: Enables direct fabrication of AI-designed RF structures.
+\end{enumerate}
+
+\subsection{Anticipated Reviewer Concerns and Responses}
+
+\begin{table}[H]
+\centering
+\caption{Anticipated reviewer concerns and prepared responses.}
+\label{tab:reviewer}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Concern} & \textbf{Response} \\
+\midrule
+``$15\times15$ is too low resolution''
+  & Co-design table (Sec.~\ref{sec:resfcodesign}) shows coverage of
+    2--18~GHz on 5--10~mm substrates; include $32\times32$ scaling experiment. \\
+``Why not use an EM optimiser?''
+  & EM optimiser requires $1000\times$ more forward evaluations per design;
+    present inference-time efficiency comparison. \\
+``Is the surrogate accurate enough?''
+  & Report gradient fidelity validation (Sec.~\ref{sec:grad_fidelity})
+    and ensemble uncertainty calibration. \\
+``Dataset is procedurally generated---biased?''
+  & Evaluate on held-out structure types; show generalisation beyond
+    training primitives; include 10\% random-plus-repair structures. \\
+``Why AAAI and not IEEE TMTT?''
+  & AI methodology is the primary contribution; submit IEEE TMTT in parallel for
+    the engineering community. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Concurrent Submission Strategy}
+
+\begin{itemize}
+  \item \textbf{AAAI-2027:} AI methodology focus (discrete diffusion for constrained
+        inverse design).
+  \item \textbf{IEEE TMTT:} Engineering focus (RF/IC design automation, detailed
+        fabrication results).
+  \item \textbf{ICLR-2027 Workshop:} Physics-informed ML workshop fallback.
+\end{itemize}
+
+% ============================================================
+\section{Implementation Roadmap}
+\label{sec:roadmap}
+% ============================================================
+
+\subsection{Phase 1 — Dataset Generation (Weeks 1--6)}
+
+\begin{itemize}
+  \item[$\square$] Implement parametric primitive generators
+        (microstrip, stubs, resonators, coupled lines, SRR).
+  \item[$\square$] Implement stochastic perturbation engine.
+  \item[$\square$] Implement connectivity validator (BFS-based).
+  \item[$\square$] Set up OpenEMS batch simulation pipeline
+        with multiprocessing parallelisation.
+  \item[$\square$] Generate 50k structures as initial dataset; scale to 200k as
+        compute allows.
+  \item[$\square$] Validate dataset: S-parameter histograms, connectivity yield,
+        physical diversity metrics.
+\end{itemize}
+
+\subsection{Phase 2 — Surrogate Model (Weeks 5--9, overlaps Phase 1)}
+
+\begin{itemize}
+  \item[$\square$] Implement CNN surrogate architecture (Section~\ref{sec:surrogate}).
+  \item[$\square$] Train ensemble of $K=5$ surrogates.
+  \item[$\square$] Validate $S$-parameter MSE on test set.
+  \item[$\square$] Validate gradient fidelity (cosine similarity $> 0.7$).
+  \item[$\square$] Add KK, passivity, and reciprocity losses.
+  \item[$\square$] Profile inference latency (target: ${<}\,10$~ms on GPU).
+\end{itemize}
+
+\subsection{Phase 3 — Denoiser Model (Weeks 8--14)}
+
+\begin{itemize}
+  \item[$\square$] Implement D3PM forward process
+        (absorbing state, ternary space $\{0,1,m\}$).
+  \item[$\square$] Implement 1D ResNet spectral encoder.
+  \item[$\square$] Implement U-Net denoiser with AdaLN conditioning.
+  \item[$\square$] Train with correct discrete CFG (Section~\ref{sec:cfg}).
+  \item[$\square$] Validate unconditional generation quality
+        (topology validity, diversity).
+  \item[$\square$] Validate conditional generation
+        (spectral accuracy under pure CFG, no physics guidance).
+\end{itemize}
+
+\subsection{Phase 4 — Physics-Guided Sampling (Weeks 12--17)}
+
+\begin{itemize}
+  \item[$\square$] Implement gradient guidance via predicted $\hat{x}_0$
+        (Section~\ref{sec:guidance}).
+  \item[$\square$] Implement uncertainty-weighted guidance.
+  \item[$\square$] Implement connectivity discriminator and topology guidance.
+  \item[$\square$] Implement differentiable DRC loss.
+  \item[$\square$] Tune guidance hyperparameters
+        ($\alphamax$, $w$, $\tthresh$, $\lambda$ weights).
+  \item[$\square$] Validate: full-wave EM verification of generated layouts.
+\end{itemize}
+
+\subsection{Phase 5 — Evaluation and Paper (Weeks 15--22)}
+
+\begin{itemize}
+  \item[$\square$] Implement all baselines (Det-CNN, cVAE, cGAN, BO, Diff-TO).
+  \item[$\square$] Run full evaluation on 1000 test specifications.
+  \item[$\square$] Run all ablation studies.
+  \item[$\square$] Perform scaling experiment at $32\times32$.
+  \item[$\square$] Write paper (AAAI format, 8 pages + references).
+  \item[$\square$] Prepare supplementary material
+        (full architecture specs, training details, extended results).
+\end{itemize}
+
+% ============================================================
+\section{Compute Budget and Resource Analysis}
+\label{sec:compute}
+% ============================================================
+
+\subsection{Dataset Generation}
+
+\begin{table}[H]
+\centering
+\caption{Dataset generation compute estimate (200k structures).}
+\label{tab:compute_data}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parallelism} & \textbf{Wall Time} & \textbf{Cloud Cost (est.)} \\
+\midrule
+1 CPU core      & $\sim$6700~hours & --- \\
+50 CPU cores    & $\sim$5.6~days   & --- \\
+100 CPU cores   & $\sim$2.8~days   & --- \\
+2$\times$ EC2 c5.18xlarge (72 vCPU each)
+                & $\sim$2.8~days   & $\approx\$420$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Surrogate Training}
+
+\begin{itemize}
+  \item Per surrogate: 100 epochs $\times$ $\sim$20~min/epoch on A100 $= \sim$33~hours.
+  \item $K = 5$ surrogates in parallel on 5 GPUs: $\sim$33~hours $\approx$ 1.5~days.
+  \item Estimated cost: \$$500$--\$$660$.
+\end{itemize}
+
+\subsection{Denoiser Training}
+
+\begin{itemize}
+  \item 300 epochs $\times$ $\sim$45~min/epoch on A100 $= \sim$225~hours $\approx$ 9~days.
+  \item With 2 GPUs (data parallel): $\sim$4.5~days.
+  \item Estimated cost: \$$700$--\$$900$.
+\end{itemize}
+
+\subsection{Total Budget Summary}
+
+\begin{table}[H]
+\centering
+\caption{Total compute budget.}
+\label{tab:compute_total}
+\begin{tabular}{lll}
+\toprule
+\textbf{Phase} & \textbf{Est.\ Cost} & \textbf{Parallelised Wall Time} \\
+\midrule
+Dataset generation (200k)   & \$$400$--\$$600$   & $\sim$3--5~days \\
+Surrogate training ($\times5$) & \$$500$--\$$700$ & $\sim$2--3~days \\
+Denoiser training           & \$$700$--\$$900$   & $\sim$5--7~days \\
+Evaluation + baselines      & \$$200$--\$$300$   & $\sim$2--3~days \\
+\midrule
+\textbf{Total}              & $\approx$\$$1800$--\$$2500$
+                            & $\approx$12--18~days active compute \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Risk Analysis and Contingency Plans}
+\label{sec:risks}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{Risk register with probability, impact, and mitigation.}
+\label{tab:risks}
+\begin{tabularx}{\linewidth}{lllX}
+\toprule
+\textbf{Risk} & \textbf{Prob.} & \textbf{Impact} & \textbf{Mitigation} \\
+\midrule
+R1: Poor surrogate gradient quality
+  & Medium & High
+  & Train on soft inputs; gradient smoothing;
+    zero-order guidance fallback
+    (finite-difference surrogate sampling). \\
+\addlinespace
+R2: D3PM ELBO training instability
+  & Low & Medium
+  & Switch to MDLM (masked diffusion) or simple
+    Bernoulli diffusion as fallback. \\
+\addlinespace
+R3: Dataset quality insufficient
+  & Low--Med & High
+  & Include 10\% random-plus-repair structures;
+    validate each sample with holdout EM simulation. \\
+\addlinespace
+R4: Compute budget overrun
+  & Medium & Medium
+  & Use AWS Spot instances;
+    reduce target to 100k if 200k infeasible;
+    use ML-accelerated FDTD for early dataset. \\
+\addlinespace
+R5: AAAI venue mismatch
+  & Low--Med & Low
+  & Ensure primary framing is AI methodology;
+    prepare parallel submission to NeurIPS-2027
+    or ICLR-2027. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+%  APPENDICES
+% ============================================================
+\appendix
+
+% ============================================================
+\section{Key Equations Reference}
+\label{app:equations}
+% ============================================================
+
+\subsection{Physics}
+
+\begin{table}[H]
+\centering
+\caption{Core physics equations.}
+\label{tab:app_physics}
+\begin{tabular}{ll}
+\toprule
+\textbf{Equation} & \textbf{Description} \\
+\midrule
+$\Smat^\dagger\Smat \preceq \mathbf{I}$ & Passivity ($N$-port) \\
+$\Smat^T = \Smat$ & Reciprocity \\
+$\Real[S] = \Hilbert\{\Imag[S]\}$ & Kramers--Kronig causality \\
+$\Delta_{\mathrm{pixel}} \ll \lambda_{\mathrm{eff}}/10$ & Pixel size validity criterion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Dataset Parameters}
+
+\begin{table}[H]
+\centering
+\caption{Dataset configuration.}
+\label{tab:app_dataset}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Grid size          & $15\times15$ (extendable to $32\times32$) \\
+Frequency range    & $0.5$--$20$~GHz \\
+Frequency points $N_f$ & 100 \\
+Target size        & 100k--500k structures \\
+Substrate types    & $\varepsilon_r \in \{2.2,\; 3.5,\; 4.4,\; 10.2\}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Model Hyperparameters}
+
+\begin{table}[H]
+\centering
+\caption{Model hyperparameters.}
+\label{tab:app_hyper}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Spectral embedding dim $m$     & 128 or 256 \\
+Diffusion steps $T$             & 500--1000 \\
+CFG guidance weight $w$         & 2.0 (tunable) \\
+Physics guidance $\alphamax$    & 0.10 \\
+Guidance threshold $\tthresh$   & $0.4T$ \\
+Ensemble size $K$               & 5 \\
+Temperature initial $\tau_0$    & 1.0 \\
+Temperature final $\tau_T$      & 0.01 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Terminology Glossary}
+\label{app:glossary}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{Glossary of terms used throughout this document.}
+\label{tab:glossary}
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+\textbf{Term} & \textbf{Definition} \\
+\midrule
+S-parameters    & Scattering parameters describing network port behaviour \\
+$S_{11}$        & Reflection coefficient at port~1 (return loss) \\
+$S_{21}$        & Forward transmission from port~1 to port~2 (insertion loss) \\
+FDTD            & Finite-Difference Time-Domain EM solver method \\
+D3PM            & Discrete Denoising Diffusion Probabilistic Models (Austin et al., 2021) \\
+CFG             & Classifier-Free Guidance \\
+AdaLN           & Adaptive Layer Normalisation \\
+STE             & Straight-Through Estimator \\
+DRC             & Design Rule Check (manufacturing constraint verification) \\
+KK              & Kramers--Kronig (causality relations between real and imaginary parts) \\
+EM manifold     & The low-dimensional manifold of physically meaningful EM structures
+                  within the full binary space \\
+Procedural generation
+                & Generating dataset samples from parameterised physical primitives
+                  rather than random sampling \\
+Absorbing state & A MASK token in D3PM that pixels transition into and cannot leave
+                  in the forward process \\
+ELBO            & Evidence Lower BOund — the training objective for variational models \\
+GradNorm        & Gradient normalisation technique for multi-task learning
+                  (Chen et al., 2018) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Document Version History}
+\label{app:versions}
+% ============================================================
+
+\begin{table}[H]
+\centering
+\caption{Document change history.}
+\label{tab:versions}
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Version} & \textbf{Date} & \textbf{Changes} \\
+\midrule
+v1.0 & May 2026 (early) & Initial brainstorm; full pipeline outlined. \\
+v2.0 & May 2026         & Four critical mathematical errors corrected
+                          (CFG, gradient guidance, KK, passivity);
+                          resolution--frequency co-design added;
+                          new baselines (cVAE, cGAN) added;
+                          full vulnerability register added;
+                          all equations verified for correctness. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\bigskip
+\begin{center}
+\rule{0.6\linewidth}{0.4pt}\\[4pt]
+{\small\color{gray}
+  \textit{Document Version: 2.0 \quad|\quad May 2026 \quad|\quad Status: Active Research Blueprint}\\[2pt]
+  \textit{All V1 mathematical errors identified, documented, and corrected.}\\[2pt]
+  \textit{Ready for implementation Phase~1 start.}\\[8pt]
+  \textit{Hare Krishna. Hari Bol.}
+}
+\end{center}
+
+\end{document}
+
+
+
+
+
+
+
