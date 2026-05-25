@@ -59,30 +59,16 @@ import numpy as np
 # ── Logging ───────────────────────────────────────────────────────────────────
 logger = logging.getLogger("pixel.openems_wrapper")
 
-# ── DLL registration (must run before any openEMS import) ─────────────────────
-OPENEMS_BIN_DIR = Path(r"D:\openEMS\openEMS")
-
-def _register_dll() -> None:
-    """Register OpenEMS DLL directory so ctypes can find openEMS.dll."""
-    bin_dir = str(OPENEMS_BIN_DIR)
-    if os.path.isdir(bin_dir):
-        try:
-            os.add_dll_directory(bin_dir)
-        except AttributeError:
-            pass  # os.add_dll_directory not available on Python < 3.8
-
-
-_register_dll()
-
 # ── Lazy openEMS imports ───────────────────────────────────────────────────────
 # Deferred so that processes that never call simulate() don't import openEMS.
+# On Linux, openEMS shared libraries are found via LD_LIBRARY_PATH or are
+# installed system-wide — no manual DLL registration needed.
 _openems_loaded = False
 
 def _ensure_openems() -> None:
     global _openems_loaded
     if _openems_loaded:
         return
-    _register_dll()
     global ContinuousStructure, OpenEMS, C0_OE
     from CSXCAD import ContinuousStructure                      # noqa: F401
     from openEMS.openEMS import openEMS as OpenEMS              # noqa: F401
@@ -594,10 +580,9 @@ def simulate(
 def worker_init_openems() -> None:
     """
     Called by multiprocessing.Pool initializer in each worker process.
-    Pre-registers OpenEMS DLLs and performs a cheap import to avoid
-    first-call overhead during generate.py's main loop.
+    Pre-loads the openEMS Python bindings to avoid first-call overhead
+    during generate.py's main loop.
     """
-    _register_dll()
     try:
         _ensure_openems()
         logger.debug(f"[openems_wrapper] Worker PID={os.getpid()} — OpenEMS ready.")

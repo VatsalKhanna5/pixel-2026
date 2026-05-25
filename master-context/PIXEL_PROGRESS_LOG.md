@@ -173,32 +173,41 @@
 | SSH | ec_23104075@10.10.11.201 | |
 
 ## KEY DECISIONS MADE
-- Primary dataset target: 200k structures (100k minimum viable)
+- Primary dataset target: **100k** structures (revised from 200k — HPC cpuq 16-core limit, 15-day window)
 - Working grid: 15×15 → physical domain 7.5 mm → valid to ~12 GHz (conservative margin)
 - Substrate primary: Rogers 4003C (εᵣ=3.55), plus FR4, Rogers 5880, Alumina
 - Generative backbone: D3PM with absorbing state (ternary {0,1,MASK}), T=1000
 - CFG formulation: Log-probability domain (V2 corrected)
 - Physics guidance: Via denoiser logits and predicted x̂₀ (V2 corrected)
 - Surrogate ensemble size: K=5
-- Training strategy: Both GPUs via accelerate DDP (surrogate uses DataParallel)
-- Experiment tracking: WandB project = pixel-2026
-- Mixed precision: bf16 (RTX 8000 native support)
-- Editable install: `pixel2026` package, build backend = `setuptools.build_meta`
+- Training: Single MIG GPU (H100 3g.47gb) via workq PBS jobs
+- Experiment tracking: **WandB** (HPC has internet access — confirmed)
+- Mixed precision: bf16 (H100 native)
+- Python version: **3.11** (changed from 3.13 for HPC CUDA compatibility)
+- Editable install: `pixel2026` package
+- OpenEMS: **Build from source** (Linux, installed to pixel-env prefix)
+- MIG GPU: Let PBS scheduler assign (no hardcoded UUID in scripts)
 
-## KNOWN WORKAROUNDS
-- `setuptools` permanently pinned to 70.2.0 by PyTorch 2.11 — use `setuptools.build_meta` not `setuptools.backends.legacy:build` in pyproject.toml
-- Windows multiprocessing in validation script: use `ThreadPool` not `mp.Pool` (spawn context requires `__main__` guard)
-- OpenEMS `SetMaxTimesteps` does NOT exist → use `FDTD.SetMaxTime(seconds)` for physical time cap
-- PowerShell `2>&1` causes NativeCommandError + exit code 1 even when Python exits 0 — check Python logs, not PS exit code
-- OpenEMS end criterion `SetEndCriteria(1e-2)` (−20 dB), not 1e-3 — low-loss substrate near-field never reaches −30 dB in 2 ns
-- FDTD pilot runs single-threaded; use `--pilot-n 50` for fast verification (~40 min) before 200k full generation with 32 workers
+## KNOWN WORKAROUNDS (HPC Linux — updated Session 4)
+- **OpenEMS**: No DLL registration needed on Linux; `LD_LIBRARY_PATH` or `CMAKE_INSTALL_PREFIX` into conda env handles .so loading
+- **PBS CPU limit**: cpuq max 16 cores → use `--workers 16` for FDTD generation
+- **PBS walltime**: 24h limit → generation uses checkpoint/resume, submit multiple jobs
+- **CUDA_VISIBLE_DEVICES**: PBS may set automatically for `ngpus=1`; fallback via `nvidia-smi -L` grep in PBS script
+- **`PYTHONNOUSERSITE=1`**: Set in all GPU PBS scripts to prevent `~/.local` package interference
+- **OpenEMS end criterion**: `SetEndCriteria(1e-2)` (−20 dB) — low-loss substrate plateau never reaches −30 dB in 2 ns
+- **OpenEMS time cap**: `FDTD.SetMaxTime(2e-9)` — 2 ns physical time, ensures termination
 
 ## OPEN QUESTIONS / DECISIONS PENDING
-- [x] Physical domain size: **DECIDED** → 7.5 mm (15×15 grid, 0.5 mm/pixel), valid to ~12 GHz
-- [x] OpenEMS vs. analytical for initial pilot? **DECIDED** → OpenEMS FDTD for research-grade dataset; analytical only for debugging
-- [x] Port position convention: **DECIDED** → left-edge center (port 1) and right-edge center (port 2)
-- [ ] Connectivity yield in FDTD pilot — confirm > 85% before full generation
-- [ ] Full 200K generation duration estimate needs real-data calibration (estimate: 3.5–5.5 days at 32 workers)
+- [x] Physical domain size: **DECIDED** → 7.5 mm (15×15 grid, 0.5 mm/pixel)
+- [x] OpenEMS vs. analytical? **DECIDED** → OpenEMS FDTD (build from source on HPC)
+- [x] Port position convention: **DECIDED** → left-edge centre (port 1), right-edge centre (port 2)
+- [x] Dataset target: **REVISED** → 100k (was 200k; HPC cpuq constraint)
+- [x] Python version: **DECIDED** → 3.11 (H100 CUDA 12.x compatibility)
+- [x] WandB: **CONFIRMED** available (HPC has internet)
+- [x] MIG selection: **DECIDED** → PBS scheduler assigns, no hardcoded UUID
+- [ ] HDF5 transfer from Windows (20,889 samples) — **PENDING USER ACTION**
+- [ ] OpenEMS build on HPC login node — **PENDING** (run `bash scripts/build_openems_linux.sh`)
+- [ ] pixel-env setup — **PENDING** (run `bash scripts/setup_hpc_env.sh`)
 
 ## VALIDATED MATHEMATICS (DO NOT CHANGE WITHOUT JUSTIFICATION)
 - All 4 V1→V2 critical corrections are locked in (see PIXEL_EXECUTION_PLAN.md §2.4)
