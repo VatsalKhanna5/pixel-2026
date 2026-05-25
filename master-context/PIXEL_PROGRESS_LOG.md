@@ -98,32 +98,79 @@
 
 ---
 
+---
+
+### Session 4 — May 25, 2026 (HPC Migration Session)
+**Status at start:** Phase 1 in progress; project migrated from Windows (RTX 8000 ×2) to NIT Jalandhar HPC (H100 ×8, MIG-enabled, PBS scheduler)
+**Work done:**
+- Full codebase audit + environment audit on HPC
+- Identified all Windows-specific code that requires Linux adaptation
+- Updated `.gitignore` with OpenEMS outputs, PBS artefacts, HPC-specific patterns
+- Updated master context with HPC resource profile and new execution strategy
+
+**Critical findings:**
+- **Data status**: `data/raw/pixel_dataset.h5` (3072-sample Windows HDF5) is NOT on HPC — only checkpoint JSON and 46 raw FDTD tmp dirs (transferred from Windows, timestamps May 18 from within files). HDF5 must be retrieved from Windows machine OR generation restarted fresh.
+- **NOTE**: User stated "~20k datapoints" but checkpoint shows `total_count: 3072`. Possible causes: (a) user recalled total FDTD *attempts* (~36k attempts logged in tmp dir IDs), (b) a later run overshot and the checkpoint wasn't the final state. The 46 raw tmp dirs contain time-domain FDTD output only — the corresponding layout arrays are unknown and S-params were never extracted, making them non-recoverable.
+- **HPC hardware** (far superior to Windows): 8× H100 GPUs (4× NVL 95.8 GB, 4× PCIe/NVL 81.5 GB), all MIG-enabled. Login node: AMD EPYC 9354 32-core @ 3.7 GHz, 1 TB RAM.
+- **PBS constraints**: `cpuq` max 16 cores for CPU-only (FDTD generation), `workq` max 1 MIG GPU for training. 24h walltime limit per job.
+- **No conda environment** on HPC — `pixel-env` must be created fresh.
+- **OpenEMS not installed** on HPC — must install for Linux.
+- **Windows-specific code**: `openems_wrapper.py` has hardcoded `D:\openEMS\openEMS` path and `os.add_dll_directory()` call; `pyproject.toml` requires Python 3.13 (HPC base is 3.12.7).
+
+**Status at end:** Phase 0 needs partial redo on HPC; Phase 1 at risk (data not on HPC)
+**Next session must:**
+1. Confirm whether the 3072-sample HDF5 was transferred or is recoverable from Windows
+2. Create `pixel-env` conda environment (Python 3.10-3.11 for H100/CUDA compatibility)
+3. Install PyTorch (CUDA 12+), all requirements
+4. Install OpenEMS for Linux (build from source or package)
+5. Fix Windows-specific code in `openems_wrapper.py`
+6. Submit dataset generation job(s) to `cpuq`
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
 |---|---|---|---|
-| 0 | Environment Setup | ✅ Complete | 100% |
-| 1 | Dataset Generation | � In Progress | 15% |
+| 0 | Environment Setup | ⚠️ Redo on HPC | 0% |
+| 1 | Dataset Generation | 🔴 Blocked (data not on HPC) | ~1.5% (3072/200k on Windows) |
 | 2 | Surrogate Physics Model | 🔴 Not started | 0% |
 | 3 | Denoiser / Generative Model | 🔴 Not started | 0% |
 | 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |
 
-## INSTALLED PACKAGES STATUS
-| Package | Version | Status |
+## INSTALLED PACKAGES STATUS (HPC — pixel-env not yet created)
+> **NOTE**: Windows environment is obsolete. Below is what needs to be installed on HPC.
+
+| Package | Target Version | Status on HPC |
 |---|---|---|
-| torch | 2.11.0+cu128 | ✅ |
-| torchvision | 0.22.0+cu128 | ✅ |
-| accelerate | 1.13.0 | ✅ |
-| diffusers | 0.38.0 | ✅ |
-| transformers | 5.8.1 | ✅ |
-| timm | 1.0.27 | ✅ |
-| wandb | 0.27.0 | ✅ |
-| h5py | 3.16.0 | ✅ |
-| omegaconf | 2.3.0 | ✅ |
-| scikit-learn | 1.8.0 | ✅ |
-| torchmetrics | 1.9.0 | ✅ |
-| openems | v0.0.36-93-g7b9cd51 | ✅ (Session 3) |
+| python | 3.10 or 3.11 | ❌ pixel-env not created |
+| torch | latest stable (CUDA 12.x) | ❌ |
+| torchvision | latest | ❌ |
+| accelerate | >=1.0 | ❌ |
+| diffusers | >=0.30 | ❌ |
+| transformers | >=4.45 | ❌ |
+| timm | >=1.0 | ❌ |
+| wandb | >=0.17 | ❌ |
+| h5py | >=3.11 | ❌ |
+| omegaconf | >=2.3 | ❌ |
+| scikit-learn | >=1.5 | ❌ |
+| torchmetrics | >=1.4 | ❌ |
+| openems | v0.0.36 (Linux build) | ❌ Not installed |
+
+## HPC HARDWARE PROFILE (NIT Jalandhar H100 Cluster)
+| Resource | Specification | Note |
+|---|---|---|
+| GPU 0 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | MIG-4d38d5cf / MIG-9b919b48 |
+| GPU 1 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | MIG-2f219700 / MIG-569925cc |
+| GPU 2 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | MIG-c747c071 / MIG-110b5c2d |
+| GPU 3 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | MIG-5eef67d0 / MIG-98a11fbb |
+| GPU 4-7 | H100 NVL (various MIG splits) | |
+| CPU | AMD EPYC 9354 32-core @ 3.7 GHz (128 logical) | |
+| RAM | 1 TB | |
+| PBS `cpuq` | Max 16 cores, CPU-only | Used for FDTD generation |
+| PBS `workq` | Max 1 MIG GPU + 32 cores | Used for ML training |
+| SSH | ec_23104075@10.10.11.201 | |
 
 ## KEY DECISIONS MADE
 - Primary dataset target: 200k structures (100k minimum viable)
