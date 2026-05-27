@@ -271,24 +271,38 @@ def run_generation(cfg, n_samples: int, n_workers: int, h5_path: Path,
 
     # batch_size=256 matches _CHUNK_SIZE in hdf5_writer so each flush writes
     # exactly one HDF5 chunk — one compress/write cycle per chunk, no thrashing.
-    # SUBMIT_BATCH = n_workers * 4 keeps the pool saturated without huge memory
+    # SUBMIT_BATCH = n_workers * 2 keeps the pool saturated without huge memory
     # spikes from overly large pool.map() calls.
-    SUBMIT_BATCH = n_workers * 4
+    SUBMIT_BATCH = n_workers * 2
+    # Per-task timeout (seconds): FDTD worst-case ~120s; 300s gives headroom.
+    TASK_TIMEOUT = 300
 
     with CheckpointWriter(h5_path, batch_size=256) as writer:
         pbar = tqdm(total=remaining, initial=0, desc="Generating", unit="records",
                     dynamic_ncols=True)
         try:
-            with mp.Pool(processes=n_workers, initializer=pool_initializer) as pool:
-                # Generate in submission batches = n_workers * 4
-                # (keeps all workers busy without allocating hundreds of tasks at once)
+            # maxtasksperchild=100 recycles workers periodically to prevent
+            # memory/state accumulation; also ensures the pool recovers cleanly
+            # if a worker crashes (SIGKILL/SIGSEGV) mid-task.
+            with mp.Pool(processes=n_workers, initializer=pool_initializer,
+                         maxtasksperchild=100) as pool:
+                # Generate in submission batches = n_workers * 2
+                # Use apply_async + per-task timeout so a single crashed or
+                # hung worker never deadlocks the entire generation run.
                 while written < remaining and not _SHUTDOWN.is_set():
                     # Prepare arguments
                     sub_id_batch  = [int(rng_master.integers(0, 4)) for _ in range(SUBMIT_BATCH)]
                     seed_batch    = [int(rng_master.integers(0, 2**31)) for _ in range(SUBMIT_BATCH)]
                     args_batch    = list(zip(seed_batch, sub_id_batch))
 
-                    results = pool.map(_worker_generate, args_batch)
+                    async_results = [pool.apply_async(_worker_generate, (arg,))
+                                     for arg in args_batch]
+                    results = []
+                    for ar in async_results:
+                        try:
+                            results.append(ar.get(timeout=TASK_TIMEOUT))
+                        except Exception:
+                            results.append(None)
                     attempts += SUBMIT_BATCH
 
                     for rec in results:
