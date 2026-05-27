@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 from omegaconf import DictConfig, OmegaConf
 
 
@@ -48,6 +47,7 @@ def set_seed(seed: int, deterministic: bool = True) -> None:
 
     Note: deterministic=True may slightly reduce throughput on some ops.
     """
+    import torch
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
