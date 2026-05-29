@@ -297,12 +297,24 @@ def run_generation(cfg, n_samples: int, n_workers: int, h5_path: Path,
 
                     async_results = [pool.apply_async(_worker_generate, (arg,))
                                      for arg in args_batch]
+                    # Poll every 1 s so SIGTERM (→ _SHUTDOWN.set()) is respected
+                    # within ~1 second instead of being blocked for TASK_TIMEOUT.
                     results = []
                     for ar in async_results:
-                        try:
-                            results.append(ar.get(timeout=TASK_TIMEOUT))
-                        except Exception:
+                        if _SHUTDOWN.is_set():
                             results.append(None)
+                            continue
+                        deadline = time.monotonic() + TASK_TIMEOUT
+                        got = None
+                        while not _SHUTDOWN.is_set() and time.monotonic() < deadline:
+                            try:
+                                got = ar.get(timeout=1.0)
+                                break
+                            except mp.TimeoutError:
+                                continue
+                            except Exception:
+                                break
+                        results.append(got)
                     attempts += SUBMIT_BATCH
 
                     for rec in results:
@@ -314,7 +326,6 @@ def run_generation(cfg, n_samples: int, n_workers: int, h5_path: Path,
                         if written >= remaining:
                             break
                         if written % CHECKPOINT_EVERY == 0:
-                            writer.flush()
                             elapsed = time.monotonic() - t0
                             rate    = written / elapsed
                             eta_h   = (remaining - written) / max(rate, 1) / 3600
@@ -323,6 +334,11 @@ def run_generation(cfg, n_samples: int, n_workers: int, h5_path: Path,
                                 f"({100*written/remaining:.1f}%) | "
                                 f"rate={rate:.0f}/s | ETA={eta_h:.1f}h"
                             )
+
+                    # Flush after every batch so partial progress survives a kill.
+                    # _flush_buffer writes the partial chunk (< 256 records) and
+                    # updates the JSON checkpoint — minimal overhead per batch.
+                    writer.flush()
 
         except KeyboardInterrupt:
             logger.warning("[generate] Interrupted — flushing checkpoint …")
