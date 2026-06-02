@@ -43,6 +43,7 @@ dataset:
     - { id: 3, name: "Alumina",     eps_r: 9.80, tan_d: 0.0001 }
   port1: [7, 0]               # [row, col] — left-edge centre
   port2: [7, 14]              # [row, col] — right-edge centre
+  actual_size: 343455          # final count as of June 2, 2026
   target_size: 200000
   min_viable_size: 100000
   train_frac: 0.80
@@ -65,27 +66,36 @@ encoder:
 # Forward Surrogate (Physics Model)
 # -----------------------------------------------------------
 surrogate:
-  in_channels: 1              # single-channel binary layout (+ port channel = 2)
+  in_channels: 2              # Ch0=layout float, Ch1=port map binary
   use_port_channel: true
   base_channels: 32
   n_res_stages: 3
   downsample_stages: 2        # 15→8→4
-  output_dim: 400             # 4 × N_f (exploiting S12=S21 reciprocity)
+  output_dim: 400             # 4 × N_f = [S11_mag, S21_mag, S11_ph/π, S21_ph/π]
   ensemble_size: 5
-  # Loss weights
+  activation: "gelu"          # GELU throughout — no dead neurons, smooth gradients
+  phase_normalize: true       # divide target phases by π → [-1,1] to balance MSE scale
+  noise_sigma: 0.05           # Gaussian noise on layout channel during training
+  # Loss weights — NOTE: lambda_kk deliberately weak (FDTD windowing creates ~0.30
+  #   systematic KK residual in training data; surrogate must match simulator output)
   lambda_mse: 1.0
   lambda_passivity: 0.10
-  lambda_reciprocity: 0.05
-  lambda_kk: 0.05
+  lambda_reciprocity: 0.0     # skip: S12=S21 trivially for 2-port, not predictable
+  lambda_kk: 0.005            # was 0.05 — reduced; strong KK would fight ground truth
   lambda_smooth: 0.02
   # Training
-  lr: 1.0e-3
+  lr: 3.0e-4
   weight_decay: 1.0e-4
-  batch_size: 512
-  epochs: 120
-  scheduler: "cosine"         # "cosine" | "step" | "plateau"
-  # Gradient fidelity gate
+  batch_size: 1024
+  epochs: 150
+  scheduler: "cosine"         # cosine annealing lr → 1e-6
+  gradient_clip: 1.0
+  seed_base: 42               # seeds 42..46 for 5 surrogates
+  output_dir: "experiments/surrogate_v1"
+  # Gradient fidelity validation (run after training each surrogate)
   grad_cosine_threshold: 0.70
+  grad_fidelity_n_samples: 500
+  grad_fidelity_delta: 0.01
 
 # -----------------------------------------------------------
 # Denoiser (D3PM Generative Model)
@@ -176,3 +186,4 @@ wandb:
   entity: null                # set to your wandb username/org
   tags: ["baseline"]
   log_every_n_steps: 50
+  mode: "offline"             # "online" | "offline" | "disabled"

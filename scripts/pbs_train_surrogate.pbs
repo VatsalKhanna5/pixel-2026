@@ -1,0 +1,50 @@
+#!/bin/bash
+# ============================================================
+# PIXEL-2026 — GPU Training PBS Script
+# Queue : workq (GPU-accelerated)
+# Usage : qsub scripts/pbs_train_surrogate.pbs
+#
+# Trains the surrogate ensemble (Phase 2) on 1 MIG GPU instance.
+# MIG UUID is resolved dynamically at runtime from $CUDA_VISIBLE_DEVICES
+# (set by PBS when ngpus=1 is requested) or via nvidia-smi -L.
+# ============================================================
+#PBS -N pixel_surrogate
+#PBS -q workq
+#PBS -l select=1:ncpus=16:ngpus=1
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o logs/pbs_surrogate.log
+
+cd "$PBS_O_WORKDIR"
+
+# ---- Conda activation ----
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+
+# ---- MIG GPU resolution ----
+# If PBS already set CUDA_VISIBLE_DEVICES, use it.
+# Otherwise, pick the first available MIG instance from nvidia-smi.
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+    MIG_UUID=$(nvidia-smi -L 2>/dev/null | grep "MIG" | head -1 | grep -oP 'MIG-[a-f0-9\-]+')
+    if [ -n "$MIG_UUID" ]; then
+        export CUDA_VISIBLE_DEVICES="$MIG_UUID"
+    fi
+fi
+
+# Block user site-packages (prevents broken packages from ~/.local)
+export PYTHONNOUSERSITE=1
+
+echo "==== PIXEL-2026 Surrogate Training ===="
+echo "Job ID              : $PBS_JOBID"
+echo "Node                : $(hostname)"
+echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+echo "Start time          : $(date)"
+echo "======================================="
+
+mkdir -p logs experiments/surrogate_v1
+
+python -m src.training.train_surrogate \
+    --config experiments/configs/base_config.yaml
+
+echo "End time : $(date)"
+echo "Exit code: $?"
