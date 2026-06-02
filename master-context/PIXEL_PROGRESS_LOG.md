@@ -112,6 +112,66 @@ EM sensitivity to layout perturbations.
 
 ---
 
+### Session 7 — June 2, 2026 (Phase 2 Deep Analysis)
+**Status at start:** Phase 2 training complete; training_summary.json available
+**Work done:**
+- Ran full deep analysis on 34,346-sample test set (all 5 ensemble models)
+- Generated `experiments/surrogate_v1/PHASE2_ANALYSIS.md` — complete report
+- Updated master context with quantitative results
+- Committed analysis + context to git
+
+**Phase 2 Deep Analysis — Full Quantitative Results:**
+
+**Spectral Accuracy (test set, 34,346 samples):**
+| Metric | Value | Gate | Status |
+|---|---|---|---|
+| S11 mag MSE | 0.01329 | <0.05 | ✅ |
+| S21 mag MSE | 0.01097 | <0.05 | ✅ |
+| S11 MAE (dB) | 1.82 dB | — | ✅ |
+| S21 MAE (dB) | **1.45 dB** | — | ✅ |
+| S11 phase MAE | 1.06 rad (61°) | — | ⚠️ |
+| S21 phase MAE | 0.72 rad (41°) | — | ⚠️ |
+
+**Physical validity:**
+- Passivity rate: **100%** — all 34,346 predictions satisfy |S11|²+|S21|² ≤ 1.01
+- Max predicted power sum: 0.967 (hard physical bound respected)
+
+**Gradient fidelity (critical for Phase 4):**
+- Mean cosine: **0.971** (gate 0.70) — gradients within 14° of true FD direction
+- Gradient magnitude ratio: **0.970** (gate 0.5–2.0) — essentially 1.0, no rescaling needed
+- All 5/5 surrogates PASS
+
+**Ensemble uncertainty calibration:**
+- Monotonically ordered: Q1 err=0.00966 → Q5 err=0.01518 (+57%) ✅
+- Pearson corr(var, sq_error) = 0.31 — correct direction, sufficient for Phase 4
+
+**Per-primitive coverage (all 11 types ≤ 0.019 MSE):**
+- Best: coupled_resonators (0.00556), ring_resonator (0.00761)
+- Hardest: interdigital (0.01886), stub_loaded (0.01689)
+- Notch (514 samples, underrepresented): 0.01066 — still good
+
+**Inference latency:**
+- Ensemble K=5, batch=32: **0.205 ms/sample** (gate <10 ms → 50× faster)
+- Phase 4 guidance overhead: ~0.2s total across T=1000 steps
+
+**Flags (non-blocking):**
+1. Phase accuracy (61°/41° MAE): expected due to phase wrapping and sensitivity;
+   magnitude gradients dominate Phase 4 guidance. Mitigated by weighting
+   `L_guided` toward S-mag channels in Phase 4.
+2. Resonance freq metric (31.45% mean): artefact of min-detection on multi-resonance
+   structures; primary spectral accuracy (1.45 dB MAE) is excellent. Re-evaluate
+   with prominence-based detection in Phase 5.
+
+**Key insight for Phase 4:** Gradient cosine 0.971 >> 0.70 gate →
+- No rollback needed; standard gradient guidance is valid
+- No gradient scaling correction needed (mag ratio ≈ 1.0)
+- Uncertainty weighting is valid (monotone quintile ordering confirmed)
+- Use `L_guided = ||F̂_mag - y*_mag||² + 0.1·||F̂_ph - y*_ph||²` to downweight phase noise
+
+**Status at end:** Analysis complete. **Ready for Phase 3.**
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -119,7 +179,7 @@ EM sensitivity to layout perturbations.
 | 0 | Environment Setup | ✅ Complete (HPC pixel-env ready) | 100% |
 | 1 | Dataset Generation | ✅ Complete | 100% |
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
-| 3 | Denoiser / Generative Model | 🔴 Not started | 0% |
+| 3 | Denoiser / Generative Model | 🟡 Ready to start | 0% |
 | 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |
 

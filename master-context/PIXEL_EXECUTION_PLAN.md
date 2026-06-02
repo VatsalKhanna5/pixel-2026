@@ -406,12 +406,33 @@ Use `--resume` if interrupted.
 ## PHASE 2: Surrogate Physics Model (Days 12–28, overlaps Phase 1)
 **STATUS: ✅ COMPLETE — all 5/5 surrogates trained, all gates passed (June 2, 2026)**
 
-**PHASE 2 RESULTS (June 2, 2026):**
-- Ensemble val_mag_mse = **0.01252 ± 0.00003** (gate < 0.05 → 4× better)
-- Gradient cosine mean = **0.971** across all 5 surrogates (gate > 0.70)
-- Gradient magnitude ratio ≈ **0.97** (gate 0.5–2.0 → essentially 1.0)
-- All 5/5 surrogates PASS gradient fidelity gate
-- Checkpoints: `experiments/surrogate_v1/surrogate_k{0..4}_best.pt`
+**PHASE 2 RESULTS (June 2, 2026) — DEEP ANALYSIS COMPLETE:**
+
+| Metric | Value | Gate | Status |
+|---|---|---|---|
+| S21 mag MSE (test) | 0.01097 | <0.05 | ✅ |
+| S11 mag MSE (test) | 0.01329 | <0.05 | ✅ |
+| S21 MAE (dB) | 1.45 dB | — | ✅ excellent |
+| Passivity rate | 100.0% | >99% | ✅ |
+| Grad cosine mean | **0.971** | >0.70 | ✅ near-perfect |
+| Grad mag ratio | 0.970 | 0.5–2.0 | ✅ |
+| Inference latency (K=5) | 0.205 ms | <10 ms | ✅ 50× better |
+| Calibration (quintile) | monotone ✓ | — | ✅ |
+
+Flags (non-blocking):
+- Phase MAE 61°/41° — expected; magnitude dominates Phase 4 guidance
+- Resonance freq metric 31% — artefact of simple min-detection; see PHASE2_ANALYSIS.md §9
+
+Load ensemble for Phase 3/4:
+```python
+from src.models.surrogate import SurrogateEnsemble, PhysicsSurrogate
+ensemble = SurrogateEnsemble.load(
+    [f"experiments/surrogate_v1/surrogate_k{k}_best.pt" for k in range(5)],
+    device=device
+)
+```
+
+Full report: `experiments/surrogate_v1/PHASE2_ANALYSIS.md`
 
 ### ⚠️ PHASE 2 CRITICAL NOTE: KK Loss Weight
 The training dataset has a systematic KK violation (mean residual ~0.30) due to the 2 ns FDTD time window cap. The surrogate must predict the simulator's actual output. **Use λ_KK = 0.005** (not 0.05). The KK loss serves only as a soft regularizer, not a hard enforcer.
@@ -635,6 +656,11 @@ IMPORTANT for 15→8→15 sizing:
 ---
 
 ## PHASE 4: Physics-Guided Sampling (Days 40–55)
+**UPDATE from Phase 2 analysis (June 2, 2026):**
+- Gradient cosine 0.971 → no rollback, no gradient scaling correction needed
+- Use magnitude-weighted guidance loss (phase noise present):
+  `L_guided = ||F̂_mag(x̂₀) - y*_mag||² + 0.1·||F̂_ph(x̂₀) - y*_ph||²`
+- Uncertainty weighting valid (calibration monotone confirmed)
 
 ### Goals
 Integrate surrogate physics guidance + connectivity guidance + DRC guidance into the denoising process. Validate with full-wave EM simulation.
