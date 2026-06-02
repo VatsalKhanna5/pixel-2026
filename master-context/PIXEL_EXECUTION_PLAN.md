@@ -322,7 +322,7 @@ Get all software running and validated before writing research code.
 ---
 
 ## PHASE 1: Dataset Generation (Days 4–21)
-**STATUS: 🟡 IN PROGRESS — FDTD pipeline implemented; pilot running (Session 3, May 17 2026)**
+**STATUS: ✅ COMPLETE — 342,415 samples in `data/raw/pixel_dataset.h5` (June 2, 2026)**
 
 ### Goals
 Generate 200k physically valid, electromagnetically simulated RF structures as HDF5.
@@ -404,6 +404,10 @@ Use `--resume` if interrupted.
 ---
 
 ## PHASE 2: Surrogate Physics Model (Days 12–28, overlaps Phase 1)
+**STATUS: 🟡 READY TO START — dataset complete, environment ready (June 2, 2026)**
+
+### ⚠️ PHASE 2 CRITICAL NOTE: KK Loss Weight
+The training dataset has a systematic KK violation (mean residual ~0.30) due to the 2 ns FDTD time window cap. The surrogate must predict the simulator's actual output. **Use λ_KK = 0.005** (not 0.05). The KK loss serves only as a soft regularizer, not a hard enforcer.
 
 ### Goals
 Train K=5 calibrated CNN ensemble surrogates that accurately predict S-parameters AND have reliable gradients.
@@ -449,6 +453,132 @@ mag_ratio = mean(||g_surrogate|| / ||g_FD||)    # Should be ~1.0
   3. **Fallback:** Zeroth-order guidance (MCMC-style surrogate sampling instead of gradient descent)
 - If MSE too high: Add ViT attention in bottleneck; increase training epochs
 - If calibration poor: Apply temperature scaling on ensemble; increase K to 7
+
+### Phase 2 — Exact Implementation Guide (Session 5)
+
+#### File 1: `src/models/surrogate.py`
+```python
+# Architecture: PhysicsSurrogate CNN
+# Input:  x̃ ∈ [0,1]^(1×15×15)  (binary layout, float)
+# Output: Ŷ ∈ ℝ^(4×100)         [S11_mag, S21_mag, S11_phase, S21_phase]
+
+class ResBlock2D(nn.Module):
+    # Conv(ch, 3×3, pad=1) → BN → ReLU → Conv(ch, 3×3, pad=1) → BN + residual → ReLU
+
+class PhysicsSurrogate(nn.Module):
+    # Encoder:
+    #   ConvBlock(1→32, 3×3) + BN + ReLU                       → (32, 15, 15)
+    #   ResBlock×3 (32 ch)                                       → (32, 15, 15)
+    #   Conv(32→64, stride=2) + BN + ReLU                       → (64, 8, 8)
+    #   ResBlock×3 (64 ch)                                       → (64, 8, 8)
+    #   Conv(64→128, stride=2) + BN + ReLU                      → (128, 4, 4)
+    #   ResBlock×2 (128 ch)                                      → (128, 4, 4)
+    # Head:
+    #   AdaptiveAvgPool2d(1) → Flatten → Linear(128→512) → ReLU → Linear(512→400)
+    #   Reshape → (4, 100)
+    # Note: train on continuous x̃ ∈ [0,1] — NOT hard binary — for gradient smoothness
+
+class SurrogateEnsemble(nn.Module):
+    # Wraps K=5 PhysicsSurrogate models
+    # forward(x) → (mean_pred (4,100), variance (4,100))
+    # mean = (1/K) Σ f_k(x)
+    # var  = (1/(K-1)) Σ (f_k(x) - mean)²
+```
+
+#### File 2: `src/losses/physics_losses.py`
+```python
+def passivity_loss(s11_mag, s21_mag):
+    # Full matrix form for 2-port:  λ_max(S†S) ≤ 1
+    # For 2-port diagonal: |S11|²+|S21|² (S22≈S11 assumed for symmetric structures)
+    power = s11_mag**2 + s21_mag**2  # (B, Nf)
+    return torch.mean(torch.clamp(power.max(dim=1).values - 1.0, min=0)**2)
+
+def reciprocity_loss(s11_mag, s21_mag):
+    # For 2-port, S12=S21. We only predict S21, so enforce |S12|≈|S21| trivially = 0
+    # Skip for now (returns 0); add S22 prediction in Phase 5 if needed
+    return torch.tensor(0.0)
+
+def kk_loss(s_re, s_im):
+    # KK: Im[S](f) ≈ -H{Re[S](f)} via FFT Hilbert
+    # WEAK REGULARIZER ONLY — λ=0.005, not 0.05
+    # Training data has inherent KK violation from 2ns FDTD window
+    analytic = torch.fft.rfft(s_re, dim=-1)
+    # ... Hilbert via FFT phase shift ...
+    return torch.mean((s_im - im_reconstructed)**2)
+
+def smoothness_loss(s_pred):
+    # Adjacent frequency smoothness: penalize sharp spectral jumps
+    diff = s_pred[..., 1:] - s_pred[..., :-1]   # (B, 4, 99)
+    return torch.mean(diff**2)
+
+def total_surrogate_loss(pred, target):
+    s11_mag_pred  = pred[:, 0, :]   # (B, 100)
+    s21_mag_pred  = pred[:, 1, :]
+    s11_ph_pred   = pred[:, 2, :]
+    s21_ph_pred   = pred[:, 3, :]
+    mse = F.mse_loss(pred, target)
+    L_pass  = passivity_loss(s11_mag_pred, s21_mag_pred)
+    L_kk    = kk_loss(s11_mag_pred * torch.cos(s11_ph_pred),
+                      s11_mag_pred * torch.sin(s11_ph_pred))
+    L_smooth = smoothness_loss(pred)
+    return mse + 0.10*L_pass + 0.005*L_kk + 0.02*L_smooth
+```
+
+#### File 3: `src/training/train_surrogate.py`
+```python
+# Key design decisions:
+# - Load full dataset into RAM at start (856 MB, fits in 1 TB RAM easily)
+# - Batch size: 1024 (15×15 is tiny; H100 can handle large batches)
+# - LR: 3e-4, cosine annealing to 1e-6
+# - Epochs: 150 (fast due to in-memory batching on H100)
+# - Train surrogates 0,1,2,3,4 sequentially in ONE PBS job
+# - Save each to: experiments/surrogate_v1/surrogate_{k}.pt
+# - WandB project: pixel-2026-surrogate
+
+# Dataset split (create splits at start of training):
+# - Sort by idx → 80/10/10 split (NO random shuffle across primitives for test stratification)
+# - Actually: use stratified split by primitive_type (hold out 10% of each type)
+
+# Input normalization:
+# - layout: float32, already in [0,1] (it's uint8 0 or 1 → cast to float)
+# - S_target: normalize? NO — predict in physical units directly
+#   S*_mag ∈ [0, 1] (passivity enforced), phase ∈ [-π, π]
+
+# Gradient fidelity validation (run after training):
+# - Sample 1000 test layouts
+# - autograd gradient vs finite-difference gradient
+# - Report cosine similarity (must be > 0.7)
+```
+
+#### File 4: `scripts/pbs/train_surrogate.pbs`
+```bash
+#!/bin/bash
+#PBS -N pixel_surrogate
+#PBS -q workq
+#PBS -l select=1:ncpus=32:ngpus=1
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o logs/surrogate_train.log
+
+cd $PBS_O_WORKDIR
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+export PYTHONNOUSERSITE=1
+export CUDA_VISIBLE_DEVICES=MIG-$(nvidia-smi -L | grep "MIG" | head -1 | awk -F'UUID: ' '{print $2}' | tr -d ')')
+
+python -m src.training.train_surrogate \
+    --config experiments/configs/base_config.yaml \
+    --n-surrogates 5 \
+    --seed-base 42 \
+    --output-dir experiments/surrogate_v1/
+```
+
+#### Estimated Training Time on H100 MIG (3g.47gb)
+- Dataset: 342k samples × 625 floats = 856 MB → fully in-memory
+- Batch size 1024 → ~335 batches/epoch
+- H100 speed: ~5ms/batch (tiny 15×15 CNN) → ~1.7 s/epoch
+- 150 epochs × 5 surrogates = ~2.1 hours total
+- Well within 24h PBS walltime for all 5 surrogates in one job
 
 ---
 

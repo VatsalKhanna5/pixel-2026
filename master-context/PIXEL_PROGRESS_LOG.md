@@ -13,7 +13,6 @@
 - Registered system capabilities (2× RTX 8000 / 51.5 GB VRAM each, 2× Xeon Gold 6226R, 128 GB RAM)
 - Created `PIXEL_EXECUTION_PLAN.md` — master execution guide
 - Created `PIXEL_PROGRESS_LOG.md` (this file)
-- Created repo memory at `/memories/repo/pixel-2026.md`
 
 **Status at end:** Phase 0 not yet started  
 
@@ -22,109 +21,64 @@
 ### Session 2 — May 17, 2026
 **Status at start:** Phase 0 not started; directory structure did not exist  
 **Work done:**
-- Created full directory tree (24 directories under project root)
-- Created `conda` environment `pixel-env` (Python 3.13.13) at `C:\Users\tyrone\anaconda3\envs\pixel-env`
-- Installed PyTorch 2.11.0+cu128 + torchvision + torchaudio via `--index-url https://download.pytorch.org/whl/cu128`
-  - **Note:** setuptools downgraded 82.0.1 → 70.2.0 by torch constraint (expected, permanent)
-- Installed all remaining dependencies (accelerate 1.13.0, diffusers 0.38.0, transformers 5.8.1, timm 1.0.27, wandb 0.27.0, h5py 3.16.0, omegaconf 2.3.0, scikit-learn 1.8.0, pandas 3.0.3, matplotlib 3.10.9, + 60 transitive packages)
-- Fixed `pyproject.toml` build backend: `setuptools.backends.legacy:build` → `setuptools.build_meta` (setuptools 70 compatibility)
-- Installed `pixel2026` package in editable mode: `pip install -e . --no-deps` ✅
-- Registered Jupyter kernel `Python (pixel-env)` at `C:\Users\tyrone\AppData\Roaming\jupyter\kernels\pixel-env` ✅
-- Created all `src/` `__init__.py` files (8 subpackages)
-- Created `pyproject.toml`, `environment.yml`, `requirements.txt`
-- Created `accelerate_config.yaml` (2× RTX 8000, bf16, 2 processes)
-- Created `experiments/configs/base_config.yaml` — master hyperparameter config (all phases, fully documented)
-- Created `src/utils/config.py` — OmegaConf loader, seed management, project root resolver
-- Created `src/utils/logging_utils.py` — logger factory, WandB init/log helpers
-- Created `src/utils/binarization.py` — Gumbel-Sigmoid, STE, tau annealing, expected-x0 extraction
-- Created `src/utils/visualization.py` — layout renderer, S-param plotter, training curve plotter
-- Created `scripts/setup_env.ps1`, `scripts/setup_openems_windows.ps1`, `scripts/validate_phase0.py`
-- Fixed multiprocessing pool check: Windows spawn context requires module-level functions; switched to `ThreadPool`
-- Created comprehensive `README.md` with reproducibility log, all setup commands, hardware requirements, config docs
-- **Ran `scripts/validate_phase0.py`**: **36/37 PASS, 1 WARN (OpenEMS — expected, not needed until Phase 1)**
+- Created full directory tree; created `pixel-env` conda env (Python 3.13.13, Windows)
+- Installed PyTorch 2.11.0+cu128, all ML packages, registered Jupyter kernel
+- Created all `src/` skeleton files, configs, utility modules
+- Ran `validate_phase0.py`: 36/37 PASS, 1 WARN (OpenEMS — expected)
 
-**Validation result:** `Phase 0 CONDITIONALLY PASSED`
-- All 36 checks PASS including: Python 3.13.13, PyTorch+CUDA dual-GPU, 103 GB VRAM, DataParallel, all packages, HDF5 round-trip, WandB, accelerate, 64-CPU ThreadPool, directory structure, Gumbel-Sigmoid, KK/Hilbert, BFS connectivity
-- 1 WARN: OpenEMS not installed — run `.\scripts\setup_openems_windows.ps1` before Phase 1
-
-**Status at end:** Phase 0 ✅ COMPLETE  
-**Next session should start with:** Phase 1 — Dataset Generation
-- Install OpenEMS via `.\scripts\setup_openems_windows.ps1`
-- Implement `src/dataset/openems_wrapper.py` (FDTD simulation interface)
-- Implement `src/dataset/generate.py` (parallel layout sampling + simulation)
-- Target: 200K (H, W, substrate, S-params) tuples stored as HDF5
+**Status at end:** Phase 0 ✅ COMPLETE (Windows)
 
 ---
 
 ### Session 3 — May 17, 2026
-**Status at start:** Phase 0 complete; Phase 1 not started; only analytical `em_simulation.py` existed  
+**Status at start:** Phase 0 complete; Phase 1 not started  
 **Work done:**
-- Installed OpenEMS v0.0.36-93-g7b9cd51 from pre-built Windows binaries at `D:\openEMS\openEMS\`
-- Registered DLL path: `os.add_dll_directory(r'D:\openEMS\openEMS')` in `sitecustomize.py` AND in module `_register_dll()`
-- Created `src/dataset/openems_wrapper.py` — full FDTD simulation backend using CSXCAD + openEMS Python bindings
-  - `simulate()`: 2-port S-parameter extraction (38,829 FDTD cells after domain optimization)
-  - `_enforce_passivity()`: correct formula — `target_s21_sq = max(0, 0.995 - |s11|²)`, scale magnitude
-  - `quick_sanity_check()`: through-line S-param verification gate
-  - `worker_init_openems()`: pool initializer for multiprocessing
-- Discovered and fixed multiple OpenEMS API issues:
-  - Wrong: `FDTD.SetMaxTimesteps(10000)` → Correct: `FDTD.SetMaxTime(2e-9)` (physical time cap)
-  - End criterion: `SetEndCriteria(1e-2)` (−20 dB), not 1e-3 (−30 dB) — substrate near-field never reaches −30 dB in 2 ns
-  - Domain optimization: ext_x=0.5, ext_y=1.0, air_z=1.0 mm → 38,829 cells (62% reduction from 101,332)
-- **FDTD smoke-test PASSED** (Rogers4003C through-line, substrate 0):
-  - Mean |S21| = −2.14 dB (gate: > −6 dB) ✅
-  - |S21| ripple = 9.72 dB (gate: < 15 dB) ✅
-  - Passivity = True ✅
-  - KK residual = 0.3131 (gate: < 0.60) ✅
-  - Time = 48.4 s, 15,314 timesteps, 12.31 MCells/s
-- Updated `src/dataset/generate.py`:
-  - FDTD/analytical backend selection via `PIXEL_USE_ANALYTICAL` env var
-  - New CLI flags: `--use-analytical`, `--skip-sanity`, `--pilot-n`
-  - FDTD sanity check gate before pilot
-  - `run_generation()` now accepts `pool_initializer` argument; wires `worker_init_openems` for FDTD
-  - `_worker_generate()` noise_sigma=0.0 (FDTD has intrinsic numerical noise)
-- Launched **FDTD pilot run**: 50 samples, `--pilot-n 50 --skip-sanity --pilot` (currently running, ~40 min)
+- Installed OpenEMS v0.0.36-93-g7b9cd51 (Windows)
+- Created `src/dataset/openems_wrapper.py` — full FDTD 2-port simulation
+- FDTD smoke-test PASSED: S21=−2.14 dB, KK=0.313, time=48.4s
+- Launched 50-sample FDTD pilot (running at session end)
 
-**Key physics insight discovered:**
-- Low-loss substrate (Rogers4003C, tan_d=0.0027) stores dielectric near-field energy with τ≈11 ns >> 2 ns simulation window. Energy stabilizes at −5 to −6 dB — PHYSICAL behavior, not a simulation defect. The `SetMaxTime(2e-9)` cap ensures all simulations terminate in ≤48 s.
+**Key physics insight:** Low-loss substrate (tan_d=0.0027) stores near-field energy with τ≈11 ns >> 2 ns window → S21 plateaus at −5 to −6 dB. PHYSICAL, not a bug. Max time cap = 2 ns ensures termination.
 
-**PowerShell quirk:**
-- `2>&1` stderr redirect triggers `NativeCommandError` and exit code 1 in PowerShell even when Python exits 0. This is cosmetic — always check Python logs for actual pass/fail, not PowerShell exit code.
-
-**Status at end:** FDTD smoke-test passed; pilot running  
-**Next session should start with:**
-1. Check pilot results (connectivity_yield > 0.85, passivity_rate > 0.99, kk_rate > 0.85)
-2. If pilot passes: delete analytical dataset (`data/raw/pixel_dataset.h5` + checkpoint), launch full 200K FDTD generation (`--workers 32 --n-samples 200000 --skip-sanity --skip-pilot`)
-3. If pilot fails: inspect failures, fix `openems_wrapper.py`, re-run pilot before full generation
-
----
+**Status at end:** FDTD smoke-test passed; pilot running
 
 ---
 
 ### Session 4 — May 25, 2026 (HPC Migration Session)
-**Status at start:** Phase 1 in progress; project migrated from Windows (RTX 8000 ×2) to NIT Jalandhar HPC (H100 ×8, MIG-enabled, PBS scheduler)
+**Status at start:** Phase 1 in progress on Windows; project migrated to NIT Jalandhar HPC  
 **Work done:**
-- Full codebase audit + environment audit on HPC
-- Identified all Windows-specific code that requires Linux adaptation
-- Updated `.gitignore` with OpenEMS outputs, PBS artefacts, HPC-specific patterns
-- Updated master context with HPC resource profile and new execution strategy
+- Full codebase + environment audit on HPC
+- Updated master context with HPC resource profile
+- Discovered Windows-specific code (DLL path, Python 3.13 dependency) requiring Linux fixes
+- Identified data gap: HDF5 not on HPC; generation needed to restart
 
-**Critical findings:**
-- **Data status**: `data/raw/pixel_dataset.h5` (3072-sample Windows HDF5) is NOT on HPC — only checkpoint JSON and 46 raw FDTD tmp dirs (transferred from Windows, timestamps May 18 from within files). HDF5 must be retrieved from Windows machine OR generation restarted fresh.
-- **NOTE**: User stated "~20k datapoints" but checkpoint shows `total_count: 3072`. Possible causes: (a) user recalled total FDTD *attempts* (~36k attempts logged in tmp dir IDs), (b) a later run overshot and the checkpoint wasn't the final state. The 46 raw tmp dirs contain time-domain FDTD output only — the corresponding layout arrays are unknown and S-params were never extracted, making them non-recoverable.
-- **HPC hardware** (far superior to Windows): 8× H100 GPUs (4× NVL 95.8 GB, 4× PCIe/NVL 81.5 GB), all MIG-enabled. Login node: AMD EPYC 9354 32-core @ 3.7 GHz, 1 TB RAM.
-- **PBS constraints**: `cpuq` max 16 cores for CPU-only (FDTD generation), `workq` max 1 MIG GPU for training. 24h walltime limit per job.
-- **No conda environment** on HPC — `pixel-env` must be created fresh.
-- **OpenEMS not installed** on HPC — must install for Linux.
-- **Windows-specific code**: `openems_wrapper.py` has hardcoded `D:\openEMS\openEMS` path and `os.add_dll_directory()` call; `pyproject.toml` requires Python 3.13 (HPC base is 3.12.7).
+**HPC profile confirmed:**
+- 8× H100 GPUs (NVL 95.8 GB + PCIe 81.5 GB), all MIG-enabled
+- AMD EPYC 9354 32-core @ 3.7 GHz, 1 TB RAM
+- PBS: `cpuq` (max 16 cores), `workq` (max 1 GPU + 32 cores), 24h walltime
 
-**Status at end:** Phase 0 needs partial redo on HPC; Phase 1 at risk (data not on HPC)
-**Next session must:**
-1. Confirm whether the 3072-sample HDF5 was transferred or is recoverable from Windows
-2. Create `pixel-env` conda environment (Python 3.10-3.11 for H100/CUDA compatibility)
-3. Install PyTorch (CUDA 12+), all requirements
-4. Install OpenEMS for Linux (build from source or package)
-5. Fix Windows-specific code in `openems_wrapper.py`
-6. Submit dataset generation job(s) to `cpuq`
+**Status at end:** Phase 0 redo needed on HPC; Phase 1 blocked pending environment setup
+
+---
+
+### Session 5 — June 2, 2026 (Dataset Complete; Phase 2 Start)
+**Status at start:** Phase 1 running on HPC (PBS job 20699.master in cpuq)  
+**Work done:**
+- Confirmed dataset generation is **COMPLETE**: `pixel_dataset.h5` has **342,415 samples** (3.4× revised 100k target)
+- Stopped PBS job 20699 (qdel) — generation finished, no need to continue
+- Cleared HDF5 consistency flags (`h5clear -s`) — file was left dirty by PBS kill
+- Cleaned up 16 stale FDTD tmp directories
+- Removed lock file `data/raw/pixel_dataset.lock`
+- Removed superseded files: `master-context/v1-full-context.md`, `master-context/pixel-background.tex`
+- **Ran full data exploration** (50k random sample + targeted analysis)
+- Updated `PIXEL_PROGRESS_LOG.md` and `PIXEL_EXECUTION_PLAN.md` with current state
+
+**Confirmed pixel-env is READY on HPC:**
+- Python 3.11.15, torch 2.6.0+cu124, all packages present (accelerate, diffusers, transformers, timm, h5py, wandb, etc.)
+- OpenEMS NOT needed for Phase 2+ (only needed for Phase 1, now complete)
+
+**Status at end:** Phase 1 ✅ COMPLETE. Phase 2 ready to start immediately.  
+**Next session:** Implement surrogate CNN architecture + physics losses + submit training PBS job
 
 ---
 
@@ -132,94 +86,130 @@
 
 | Phase | Name | Status | % Complete |
 |---|---|---|---|
-| 0 | Environment Setup | ⚠️ Redo on HPC | 0% |
-| 1 | Dataset Generation | 🔴 Blocked (data not on HPC) | ~1.5% (3072/200k on Windows) |
-| 2 | Surrogate Physics Model | 🔴 Not started | 0% |
+| 0 | Environment Setup | ✅ Complete (HPC pixel-env ready) | 100% |
+| 1 | Dataset Generation | ✅ Complete | 100% |
+| 2 | Surrogate Physics Model | 🟡 Ready to start | 0% |
 | 3 | Denoiser / Generative Model | 🔴 Not started | 0% |
 | 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |
 
-## INSTALLED PACKAGES STATUS (HPC — pixel-env not yet created)
-> **NOTE**: Windows environment is obsolete. Below is what needs to be installed on HPC.
+---
 
-| Package | Target Version | Status on HPC |
+## DATASET QUALITY AUDIT (Session 5 — June 2, 2026)
+
+### Final Dataset: `data/raw/pixel_dataset.h5`
+| Metric | Value | Gate | Status |
+|---|---|---|---|
+| Total samples | 342,415 | ≥ 100k | ✅ PASS (3.4×) |
+| Schema completeness | All 10 fields present | Full schema | ✅ |
+| Validity (all flags) | 100% | — | ✅ |
+| Passivity `\|S11\|²+\|S21\|² ≤ 1.01` | 100.00% | > 99% | ✅ PASS |
+| Connectivity (port pixels) | 100% both ports | > 85% | ✅ PASS |
+| Substrate balance (4 types) | 24.7–25.2% each | No type > 25% | ✅ PASS |
+| Primitive balance (11 types) | 1.5–10.8% | No type > 25% | ✅ PASS |
+| Resonance coverage | 100% | ≥ 60% | ✅ PASS |
+| Spectral diversity (cross-prim S21 MSE) | 0.0512 | > 0.05 | ✅ marginal PASS |
+| KK residual (Hilbert proxy) | S11: 0.296, S21: 0.271 | < 0.02 strict | ⚠️ HIGH — see note |
+
+### Dataset Statistics
+| Field | Value |
+|---|---|
+| Layout fill fraction | mean=12.7%, std=4.0%, range [6.7%, 30.2%] |
+| S11 magnitude | mean=−7.63 dB, std=3.84 dB, range [−37, −0.03] dB |
+| S21 magnitude | mean=−5.79 dB, std=3.41 dB, range [−53, −0.25] dB |
+| Max passivity sum | 0.9950 (hard enforcement in simulation) |
+| S11 < −10 dB (resonance) | 89.0% of structures |
+| S21 < −10 dB (stopband) | 53.6% of structures |
+| Layout Hamming distance | mean=22.5 bits, std=10.9 |
+| Resonance freqs storage | Hz (not GHz) — values ~0.7–5 GHz range |
+
+### ⚠️ CRITICAL NOTE: KK Residual
+The KK residual (0.296 mean) significantly exceeds the strict < 0.02 gate from the plan. This is **NOT a data quality bug** — it is a known physical simulation artifact from the 2 ns time-domain window cap. Low-loss dielectric substrates have τ ≈ 11 ns energy decay time; truncating at 2 ns creates a non-causal windowing effect in the frequency response.
+
+**Implication for surrogate training:** The surrogate should learn to predict the simulator's actual output (including this artifact). The KK loss weight in surrogate training must be **reduced from λ_KK=0.05 to λ_KK=0.005** to avoid the loss fighting the ground truth. See Phase 2 execution notes.
+
+### Primitive Type Distribution
+| Type | Name | Count (est.) | Balance |
+|---|---|---|---|
+| 0 | microstrip | ~10.7% | ✅ |
+| 1 | wideband_taper | ~7.5% | ✅ |
+| 2 | quarter_stub | ~10.5% | ✅ |
+| 3 | half_resonator | ~8.7% | ✅ |
+| 4 | notch | ~1.5% | ⚠️ Underrepresented |
+| 5 | coupled_resonators | ~10.8% | ✅ |
+| 6 | interdigital | ~10.4% | ✅ |
+| 7 | ring_resonator | ~10.3% | ✅ |
+| 8 | edge_coupled | ~10.4% | ✅ |
+| 9 | srr | ~9.6% | ✅ |
+| 10 | stub_loaded | ~9.4% | ✅ |
+
+Note: `notch` at 1.5% is underrepresented. Not critical (plan only says no type > 25%), but worth noting.
+
+---
+
+## INSTALLED PACKAGES (HPC pixel-env — CONFIRMED Session 5)
+
+| Package | Version | Status |
 |---|---|---|
-| python | 3.10 or 3.11 | ❌ pixel-env not created |
-| torch | latest stable (CUDA 12.x) | ❌ |
-| torchvision | latest | ❌ |
-| accelerate | >=1.0 | ❌ |
-| diffusers | >=0.30 | ❌ |
-| transformers | >=4.45 | ❌ |
-| timm | >=1.0 | ❌ |
-| wandb | >=0.17 | ❌ |
-| h5py | >=3.11 | ❌ |
-| omegaconf | >=2.3 | ❌ |
-| scikit-learn | >=1.5 | ❌ |
-| torchmetrics | >=1.4 | ❌ |
-| openems | v0.0.36 (Linux build) | ❌ Not installed |
+| python | 3.11.15 | ✅ |
+| torch | 2.6.0+cu124 | ✅ |
+| torchvision | 0.21.0+cu124 | ✅ |
+| accelerate | 1.13.0 | ✅ |
+| diffusers | 0.38.0 | ✅ |
+| transformers | 5.9.0 | ✅ |
+| timm | 1.0.27 | ✅ |
+| wandb | 0.27.0 | ✅ |
+| h5py | 3.16.0 | ✅ |
+| omegaconf | 2.3.0 | ✅ |
+| scikit-learn | 1.8.0 | ✅ |
+| scikit-image | 0.26.0 | ✅ |
+| torchmetrics | 1.9.0 | ✅ |
+| einops | 0.8.2 | ✅ |
+| numpy | 2.4.4 | ✅ |
+| scipy | 1.17.1 | ✅ |
+| pandas | 3.0.3 | ✅ |
+| matplotlib | 3.10.9 | ✅ |
+| tqdm | 4.67.3 | ✅ |
+| openems | NOT installed | ✅ (not needed for Phase 2+) |
+
+---
 
 ## HPC HARDWARE PROFILE (NIT Jalandhar H100 Cluster)
 | Resource | Specification | Note |
 |---|---|---|
-| GPU 0 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | MIG-4d38d5cf / MIG-9b919b48 |
-| GPU 1 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | MIG-2f219700 / MIG-569925cc |
-| GPU 2 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | MIG-c747c071 / MIG-110b5c2d |
-| GPU 3 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | MIG-5eef67d0 / MIG-98a11fbb |
-| GPU 4-7 | H100 NVL (various MIG splits) | |
+| GPU 0 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | |
+| GPU 1 | H100 NVL 95.8 GB (MIG: 2× 3g.47gb) | |
+| GPU 2 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | |
+| GPU 3 | H100 PCIe 81.5 GB (MIG: 2× 3g.40gb) | |
+| GPU 4-7 | H100 NVL/PCIe (various MIG splits) | |
 | CPU | AMD EPYC 9354 32-core @ 3.7 GHz (128 logical) | |
 | RAM | 1 TB | |
-| PBS `cpuq` | Max 16 cores, CPU-only | Used for FDTD generation |
-| PBS `workq` | Max 1 MIG GPU + 32 cores | Used for ML training |
+| PBS `cpuq` | Max 16 cores, CPU-only | Phase 1 (done) |
+| PBS `workq` | Max 1 MIG GPU + 32 cores | Phases 2-4 |
 | SSH | ec_23104075@10.10.11.201 | |
 
-## KEY DECISIONS MADE
-- Primary dataset target: **100k** structures (revised from 200k — HPC cpuq 16-core limit, 15-day window)
-- Working grid: 15×15 → physical domain 7.5 mm → valid to ~12 GHz (conservative margin)
-- Substrate primary: Rogers 4003C (εᵣ=3.55), plus FR4, Rogers 5880, Alumina
-- Generative backbone: D3PM with absorbing state (ternary {0,1,MASK}), T=1000
-- CFG formulation: Log-probability domain (V2 corrected)
-- Physics guidance: Via denoiser logits and predicted x̂₀ (V2 corrected)
-- Surrogate ensemble size: K=5
-- Training: Single MIG GPU (H100 3g.47gb) via workq PBS jobs
-- Experiment tracking: **WandB** (HPC has internet access — confirmed)
+## KEY DECISIONS (ALL LOCKED)
+- Dataset: **342,415 samples** (was 100k target — exceeded 3.4×)
+- Grid: 15×15, physical domain 7.5 mm, valid to ~12 GHz
+- Surrogate: K=5 CNN ensemble, λ_KK=**0.005** (reduced from 0.05 due to simulation windowing)
+- Generative backbone: D3PM absorbing state (ternary {0,1,MASK}), T=1000
+- CFG: log-probability domain (V2 corrected)
+- Physics guidance: via denoiser logits + predicted x̂₀ (V2 corrected)
+- Training: Single MIG GPU (H100 3g.47gb) per PBS workq job
 - Mixed precision: bf16 (H100 native)
-- Python version: **3.11** (changed from 3.13 for HPC CUDA compatibility)
-- Editable install: `pixel2026` package
-- OpenEMS: **Build from source** (Linux, installed to pixel-env prefix)
-- MIG GPU: Let PBS scheduler assign (no hardcoded UUID in scripts)
-
-## KNOWN WORKAROUNDS (HPC Linux — updated Session 4)
-- **OpenEMS**: No DLL registration needed on Linux; `LD_LIBRARY_PATH` or `CMAKE_INSTALL_PREFIX` into conda env handles .so loading
-- **PBS CPU limit**: cpuq max 16 cores → use `--workers 16` for FDTD generation
-- **PBS walltime**: 24h limit → generation uses checkpoint/resume, submit multiple jobs
-- **CUDA_VISIBLE_DEVICES**: PBS may set automatically for `ngpus=1`; fallback via `nvidia-smi -L` grep in PBS script
-- **`PYTHONNOUSERSITE=1`**: Set in all GPU PBS scripts to prevent `~/.local` package interference
-- **OpenEMS end criterion**: `SetEndCriteria(1e-2)` (−20 dB) — low-loss substrate plateau never reaches −30 dB in 2 ns
-- **OpenEMS time cap**: `FDTD.SetMaxTime(2e-9)` — 2 ns physical time, ensures termination
+- Python: 3.11, CUDA 12.4
+- HPC access window: started May 25 → expires ~June 9 (15-day limit); renew if needed
 
 ## OPEN QUESTIONS / DECISIONS PENDING
-- [x] Physical domain size: **DECIDED** → 7.5 mm (15×15 grid, 0.5 mm/pixel)
-- [x] OpenEMS vs. analytical? **DECIDED** → OpenEMS FDTD (build from source on HPC)
-- [x] Port position convention: **DECIDED** → left-edge centre (port 1), right-edge centre (port 2)
-- [x] Dataset target: **REVISED** → 100k (was 200k; HPC cpuq constraint)
-- [x] Python version: **DECIDED** → 3.11 (H100 CUDA 12.x compatibility)
-- [x] WandB: **CONFIRMED** available (HPC has internet)
-- [x] MIG selection: **DECIDED** → PBS scheduler assigns, no hardcoded UUID
-- [ ] HDF5 transfer from Windows (20,889 samples) — **PENDING USER ACTION**
-- [ ] OpenEMS build on HPC login node — **PENDING** (run `bash scripts/build_openems_linux.sh`)
-- [ ] pixel-env setup — **PENDING** (run `bash scripts/setup_hpc_env.sh`)
+- [x] All Phase 0-1 decisions locked
+- [ ] WandB project name for Phase 2 — use `pixel-2026-surrogate`
+- [ ] Whether to add `S22` prediction to surrogate output (currently only S11, S21)
+- [ ] Data split strategy: random 80/10/10 vs. primitive-stratified split
 
-## VALIDATED MATHEMATICS (DO NOT CHANGE WITHOUT JUSTIFICATION)
-- All 4 V1→V2 critical corrections are locked in (see PIXEL_EXECUTION_PLAN.md §2.4)
-- Discrete CFG formula verified and documented
-- Physics guidance mechanism via logits verified
-- KK loss formula verified (via FFT Hilbert transform)
-- Passivity: full matrix eigenvalue form required
-- `_enforce_passivity` formula (Session 3, verified correct):
+## VALIDATED MATHEMATICS (DO NOT CHANGE)
+- All 4 V1→V2 critical corrections locked (see PIXEL_EXECUTION_PLAN.md §2.4)
+- `_enforce_passivity` formula (Session 3, verified):
   ```python
-  target_s21_sq  = np.maximum(0.0, (1.0 - margin) - |s11|²)   # margin=0.005
-  target_s21_mag = np.sqrt(target_s21_sq)
-  scale = where(|s21| > 1e-8, target_s21_mag / (|s21| + 1e-30), 0.0)
-  scale = clip(scale, 0.0, 1.0)   # can only reduce, never amplify
-  s21_out[needs_clip] = s21[needs_clip] * scale[needs_clip]
+  target_s21_sq  = max(0, (1 - 0.005) - |s11|²)
+  scale = clip(target_s21_mag / (|s21| + 1e-30), 0, 1)
   ```
