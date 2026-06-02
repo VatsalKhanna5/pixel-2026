@@ -78,7 +78,37 @@
 - OpenEMS NOT needed for Phase 2+ (only needed for Phase 1, now complete)
 
 **Status at end:** Phase 1 ✅ COMPLETE. Phase 2 ready to start immediately.  
-**Next session:** Implement surrogate CNN architecture + physics losses + submit training PBS job
+**Next session:** Phase 3 — implement D3PM denoiser + spectral encoder + DDP training
+
+---
+
+### Session 6 — June 2, 2026 (Phase 2 Complete)
+**Status at start:** Phase 2 training job running (PBS 20713)
+**Work done:**
+- Confirmed PBS job 20713 completed cleanly (exit code 0, 14:33→17:00 IST, 2h 27min)
+- All 5/5 surrogates PASS all quality gates
+- Updated master context and pushed to GitHub
+
+**Phase 2 Final Results:**
+| k | val_mag_mse | grad/cosine | grad/mag_ratio | pass |
+|---|---|---|---|---|
+| 0 | 0.01253 | 0.9708 | 0.969 | ✅ |
+| 1 | 0.01248 | 0.9720 | 0.968 | ✅ |
+| 2 | 0.01255 | 0.9722 | 0.974 | ✅ |
+| 3 | 0.01254 | 0.9691 | 0.967 | ✅ |
+| 4 | 0.01250 | 0.9737 | 0.974 | ✅ |
+
+Ensemble mean val_mag_mse = **0.01252 ± 0.00003** (gate < 0.05 → **4× better**)
+Gradient cosine mean = **0.971** (gate > 0.70 → **near-perfect gradients**)
+
+Checkpoints in `experiments/surrogate_v1/surrogate_k{0..4}_best.pt`
+Split indices: `experiments/surrogate_v1/split_indices.npz`
+
+**Key insight:** Gradient cosine ~0.97 (not just >0.70) means Phase 4 uncertainty-weighted
+physics guidance will be highly reliable — surrogate gradients accurately reflect true
+EM sensitivity to layout perturbations.
+
+**Status at end:** Phase 2 ✅ COMPLETE
 
 ---
 
@@ -88,7 +118,7 @@
 |---|---|---|---|
 | 0 | Environment Setup | ✅ Complete (HPC pixel-env ready) | 100% |
 | 1 | Dataset Generation | ✅ Complete | 100% |
-| 2 | Surrogate Physics Model | 🟡 Ready to start | 0% |
+| 2 | Surrogate Physics Model | ✅ Complete | 100% |
 | 3 | Denoiser / Generative Model | 🔴 Not started | 0% |
 | 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |

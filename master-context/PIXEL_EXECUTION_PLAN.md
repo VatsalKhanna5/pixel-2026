@@ -404,7 +404,14 @@ Use `--resume` if interrupted.
 ---
 
 ## PHASE 2: Surrogate Physics Model (Days 12–28, overlaps Phase 1)
-**STATUS: 🟡 READY TO START — dataset complete, environment ready (June 2, 2026)**
+**STATUS: ✅ COMPLETE — all 5/5 surrogates trained, all gates passed (June 2, 2026)**
+
+**PHASE 2 RESULTS (June 2, 2026):**
+- Ensemble val_mag_mse = **0.01252 ± 0.00003** (gate < 0.05 → 4× better)
+- Gradient cosine mean = **0.971** across all 5 surrogates (gate > 0.70)
+- Gradient magnitude ratio ≈ **0.97** (gate 0.5–2.0 → essentially 1.0)
+- All 5/5 surrogates PASS gradient fidelity gate
+- Checkpoints: `experiments/surrogate_v1/surrogate_k{0..4}_best.pt`
 
 ### ⚠️ PHASE 2 CRITICAL NOTE: KK Loss Weight
 The training dataset has a systematic KK violation (mean residual ~0.30) due to the 2 ns FDTD time window cap. The surrogate must predict the simulator's actual output. **Use λ_KK = 0.005** (not 0.05). The KK loss serves only as a soft regularizer, not a hard enforcer.
