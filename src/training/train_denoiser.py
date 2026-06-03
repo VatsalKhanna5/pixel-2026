@@ -117,9 +117,11 @@ def generate_samples(
     # Start from all-MASK
     H, W  = 15, 15
     x_t   = torch.full((n_samples, H, W), diffusion.MASK, dtype=torch.long, device=device)
-    pm    = port_map.to(device)
-    if pm.shape[0] != n_samples:
-        pm = pm.expand(n_samples, -1, -1, -1) if pm.ndim == 4 else pm
+    # Standardise port_map to (n_samples, 1, H, W) regardless of input shape
+    pm = port_map.float().to(device)
+    while pm.ndim < 4:
+        pm = pm.unsqueeze(0)
+    pm = pm.expand(n_samples, -1, -1, -1).contiguous()
 
     c_y = None
     if s_params is not None and cfg_w > 0:
@@ -133,17 +135,10 @@ def generate_samples(
                 lambda xt, tt, cy, pm_: denoiser(xt, tt, cy, pm_),
                 x_t, t, c_y, pm, w=cfg_w,
             )
+            x0_logits_for_posterior = log_probs   # CFG log-probs drive posterior sampling
         else:
-            logits = denoiser(x_t, t, None, pm)
+            x0_logits_for_posterior = denoiser(x_t, t, c_y, pm)
             log_probs = None
-
-        x0_logits = denoiser(x_t, t, c_y, pm) if log_probs is None else None
-
-        if x0_logits is None:
-            # Reconstruct logits from CFG log-probs for posterior
-            x0_logits_for_posterior = log_probs   # log-probs, used as logits (same argmax)
-        else:
-            x0_logits_for_posterior = x0_logits
 
         x_t = diffusion.posterior_sample(
             x_t, x0_logits_for_posterior, t,
@@ -185,9 +180,13 @@ def surrogate_s21_mse(
     """Score generated layouts with the surrogate ensemble."""
     ensemble.eval()
     N = len(layouts)
-    pm = port_map.expand(N, -1, -1, -1).to(device) if port_map.ndim == 3 else port_map.to(device)
+    # Standardise port_map to (N, 1, H, W) regardless of input shape
+    pm = port_map.float().to(device)
+    while pm.ndim < 4:
+        pm = pm.unsqueeze(0)
+    pm = pm.expand(N, -1, -1, -1)
     layout_f = layouts.float().unsqueeze(1).to(device).clamp(0, 1)  # {0,1} → float
-    x_in = torch.cat([layout_f, pm[:N]], dim=1)   # (N, 2, 15, 15)
+    x_in = torch.cat([layout_f, pm], dim=1)   # (N, 2, 15, 15)
 
     mean_pred, _ = ensemble(x_in)   # (N, 4, 100)
     # S21 magnitude MSE (channels 0=S11, 1=S21)
