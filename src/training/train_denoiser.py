@@ -201,6 +201,8 @@ def surrogate_s21_mse(
 def main() -> None:
     parser = argparse.ArgumentParser(description="PIXEL-2026 Phase 3: D3PM Denoiser")
     parser.add_argument("--config", default="experiments/configs/base_config.yaml")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume from experiments/denoiser_v1/denoiser_latest.pt if it exists")
     args = parser.parse_args()
 
     cfg  = load_config(args.config)
@@ -311,6 +313,30 @@ def main() -> None:
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimiser, lr_lambda)
 
+    # ── Resume from checkpoint ────────────────────────────────────────────────
+    start_epoch     = 1
+    best_conn_yield = 0.0
+    global_step     = 0
+    latest_ckpt     = out_dir / "denoiser_latest.pt"
+
+    if args.resume and latest_ckpt.exists():
+        print(f"[resume] Loading checkpoint from {latest_ckpt}", flush=True)
+        ckpt = torch.load(latest_ckpt, map_location=device)
+        denoiser.load_state_dict(ckpt["denoiser_state"])
+        encoder.load_state_dict(ckpt["encoder_state"])
+        ema.load_state_dict(ckpt["ema_state"], device)
+        optimiser.load_state_dict(ckpt["optimiser_state"])
+        start_epoch     = ckpt["epoch"] + 1
+        global_step     = ckpt.get("global_step", 0)
+        best_conn_yield = ckpt.get("best_conn_yield", 0.0)
+        # Advance scheduler to the correct step
+        for _ in range(global_step):
+            scheduler.step()
+        print(f"[resume] Resuming from epoch {start_epoch}  "
+              f"(best_conn={best_conn_yield:.3f})", flush=True)
+    else:
+        print("[resume] Starting fresh", flush=True)
+
     # ── WandB ─────────────────────────────────────────────────────────────────
     wandb.init(
         project = cfg.wandb.project + "-denoiser",
@@ -318,19 +344,20 @@ def main() -> None:
         config  = OmegaConf.to_container(dcfg, resolve=True),
         mode    = cfg.wandb.get("mode", "offline"),
         dir     = str(out_dir),
+        resume  = "allow",
+        id      = "denoiser_v1_run",
     )
 
     # ── Training loop ─────────────────────────────────────────────────────────
-    best_conn_yield  = 0.0
-    global_step      = 0
-    val_every        = 25    # epochs between validation runs
-    summary: Dict    = {}
+    val_every  = 25    # epochs between validation runs
+    ckpt_every = 10    # save latest checkpoint every N epochs (limits loss per kill)
+    summary: Dict = {}
 
-    print(f"\n[train] Starting: {dcfg.epochs} epochs, {len(train_loader)} batches/epoch",
-          flush=True)
+    print(f"\n[train] Starting from epoch {start_epoch}/{dcfg.epochs}, "
+          f"{len(train_loader)} batches/epoch", flush=True)
     t_start = time.time()
 
-    for epoch in range(1, dcfg.epochs + 1):
+    for epoch in range(start_epoch, dcfg.epochs + 1):
         denoiser.train()
         encoder.train()
 
@@ -436,6 +463,18 @@ def main() -> None:
         # ── Log + print ────────────────────────────────────────────────────
         log_dict = {**avg_comps, **val_metrics}
         wandb.log(log_dict, step=epoch)
+
+        # ── Periodic latest checkpoint (every ckpt_every epochs) ─────────────
+        if epoch % ckpt_every == 0:
+            torch.save({
+                "epoch":            epoch,
+                "denoiser_state":   denoiser.state_dict(),
+                "encoder_state":    encoder.state_dict(),
+                "ema_state":        ema.state_dict(),
+                "optimiser_state":  optimiser.state_dict(),
+                "global_step":      global_step,
+                "best_conn_yield":  best_conn_yield,
+            }, latest_ckpt)
 
         if epoch % 10 == 0 or epoch == 1 or epoch == dcfg.epochs:
             elapsed = time.time() - t_start

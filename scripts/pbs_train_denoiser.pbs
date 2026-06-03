@@ -72,7 +72,8 @@ echo "============================================="
 mkdir -p logs experiments/denoiser_v1
 
 python -m src.training.train_denoiser \
-    --config experiments/configs/base_config.yaml
+    --config experiments/configs/base_config.yaml \
+    --resume
 
 echo "End time : $(date)"
 echo "Exit code: $?"
