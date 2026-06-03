@@ -1,0 +1,41 @@
+#!/bin/bash
+# ============================================================
+# PIXEL-2026 — Denoiser (D3PM) Training PBS Script
+# Queue : workq (GPU-accelerated)
+# Usage : qsub scripts/pbs_train_denoiser.pbs
+# ============================================================
+#PBS -N pixel_denoiser
+#PBS -q workq
+#PBS -l select=1:ncpus=16:ngpus=1
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o logs/pbs_denoiser.log
+
+cd "$PBS_O_WORKDIR"
+
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+    MIG_UUID=$(nvidia-smi -L 2>/dev/null | grep "MIG" | head -1 | grep -oP 'MIG-[a-f0-9\-]+')
+    if [ -n "$MIG_UUID" ]; then
+        export CUDA_VISIBLE_DEVICES="$MIG_UUID"
+    fi
+fi
+
+export PYTHONNOUSERSITE=1
+
+echo "==== PIXEL-2026 Denoiser (D3PM) Training ===="
+echo "Job ID              : $PBS_JOBID"
+echo "Node                : $(hostname)"
+echo "CUDA_VISIBLE_DEVICES: $CUDA_VISIBLE_DEVICES"
+echo "Start time          : $(date)"
+echo "============================================="
+
+mkdir -p logs experiments/denoiser_v1
+
+python -m src.training.train_denoiser \
+    --config experiments/configs/base_config.yaml
+
+echo "End time : $(date)"
+echo "Exit code: $?"
