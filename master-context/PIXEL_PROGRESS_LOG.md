@@ -78,7 +78,7 @@
 - OpenEMS NOT needed for Phase 2+ (only needed for Phase 1, now complete)
 
 **Status at end:** Phase 1 ✅ COMPLETE. Phase 2 ready to start immediately.  
-**Next session:** Phase 3 — implement D3PM denoiser + spectral encoder + DDP training
+**Next session:** Monitor Phase 3 training (job 20803); check connectivity yield + S21 MSE gates
 
 ---
 
@@ -172,6 +172,51 @@ EM sensitivity to layout perturbations.
 
 ---
 
+### Session 8 — June 2, 2026 (Phase 3 Implementation + Launch)
+**Status at start:** Phase 2 fully analysed; Phase 3 not started
+**Work done:**
+- Implemented all 6 Phase 3 components + PBS script
+- Ran full smoke tests (all pass)
+- Committed to git (commit `1f4378c`)
+- Submitted PBS job 20803 to `workq` — training running
+
+**Files created:**
+| File | Purpose |
+|---|---|
+| `src/models/spectral_encoder.py` | 1D ResNet (712k params) → c_y∈ℝ²⁵⁶ |
+| `src/models/diffusion.py` | D3PM absorbing: q_sample, posterior_sample, expected_x0 |
+| `src/models/denoiser.py` | U-Net 15→8→15, AdaLN+GELU, self-attn bottleneck, EMA (2.67M params) |
+| `src/losses/diffusion_losses.py` | Masked CE (MASK pixels) + auxiliary full-image CE |
+| `src/guidance/cfg.py` | Discrete CFG: log p̃=(1+w)log p_cond - w·log p_uncond |
+| `src/training/train_denoiser.py` | Full loop: EMA, condition dropout 15%, validation every 25 epochs |
+| `scripts/pbs_train_denoiser.pbs` | workq job, ncpus=16, dynamic MIG UUID |
+
+**Key design decisions made in Phase 3:**
+- **2 output logits** (not 3): network predicts p_θ(x_0∈{0,1}|x_t), not x_{t-1} — cleaner,
+  matches absorbing diffusion theory; posterior computed analytically from x_0 prediction
+- **GELU throughout** (matches Phase 2 design philosophy; no dead-neuron issues)
+- **AdaLN via GroupNorm** (avoids permute complexity at 15×15 spatial scale)
+- **Condition dropout on both y and c_y** (y zeroed → c_y zeroed → network trained on both)
+- **Validation every 25 epochs** via EMA weights (not training weights) for unbiased metrics
+- **3.38M total params** (encoder 712k + denoiser 2.67M) — fast, fits H100 MIG easily
+
+**Estimated training time:** ~37 min for 300 epochs. Well within 24h PBS walltime.
+
+**Checkpoint gates (P3):**
+- Connectivity yield (uncond) > 80%
+- Hamming diversity > 30 bits
+- Conditional S21 MSE (surrogate-scored) < 0.10
+
+**Monitor with:**
+```bash
+cat /var/spool/pbs/spool/20803.master.OU   # live output
+qstat -u ec_23104075                        # job status
+```
+
+**Status at end:** Phase 3 training running on PBS 20803.
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -179,7 +224,7 @@ EM sensitivity to layout perturbations.
 | 0 | Environment Setup | ✅ Complete (HPC pixel-env ready) | 100% |
 | 1 | Dataset Generation | ✅ Complete | 100% |
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
-| 3 | Denoiser / Generative Model | 🟡 Ready to start | 0% |
+| 3 | Denoiser / Generative Model | 🟡 Training — PBS 20803 running | ~0% |
 | 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |
 

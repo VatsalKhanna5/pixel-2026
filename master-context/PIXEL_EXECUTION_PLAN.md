@@ -611,6 +611,19 @@ python -m src.training.train_surrogate \
 ---
 
 ## PHASE 3: Denoiser / Generative Model (Days 25–45)
+**STATUS: 🟡 TRAINING — PBS job 20803 running on workq (June 2, 2026)**
+
+**Implementation notes (Session 8):**
+- Output: 2 logits per pixel (p_θ(x_0∈{0,1}|x_t)) — cleaner than 3-class x_{t-1} prediction
+- Encoder: 1D ResNet (712k), Denoiser: U-Net 15→8→15 (2.67M) — total 3.38M params
+- AdaLN via GroupNorm (no permute complexity); GELU throughout
+- EMA decay=0.9999; validation with EMA weights every 25 epochs
+- Load trained denoiser:
+  ```python
+  ckpt = torch.load("experiments/denoiser_v1/denoiser_best.pt")
+  denoiser.load_state_dict(ckpt["denoiser_state"])
+  encoder.load_state_dict(ckpt["encoder_state"])
+  ```
 
 ### Goals
 Train a conditional D3PM denoiser over binary EM layouts with discrete CFG. Validate unconditional and conditional generation quality.
