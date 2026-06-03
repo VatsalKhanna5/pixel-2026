@@ -350,7 +350,7 @@ def main() -> None:
 
     # ── Training loop ─────────────────────────────────────────────────────────
     val_every  = 25    # epochs between validation runs
-    ckpt_every = 10    # save latest checkpoint every N epochs (limits loss per kill)
+    ckpt_every = 1     # save after EVERY epoch — GACP kills happen before epoch 10
     summary: Dict = {}
 
     print(f"\n[train] Starting from epoch {start_epoch}/{dcfg.epochs}, "
