@@ -17,9 +17,46 @@ source /apps/compilers/anaconda3/etc/profile.d/conda.sh
 conda activate pixel-env
 
 if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
-    MIG_UUID=$(nvidia-smi -L 2>/dev/null | grep "MIG" | head -1 | grep -oP 'MIG-[a-f0-9\-]+')
-    if [ -n "$MIG_UUID" ]; then
-        export CUDA_VISIBLE_DEVICES="$MIG_UUID"
+    # Pick the first MIG instance whose parent GPU has < 10 GB currently in use.
+    # Avoids grabbing an already-occupied MIG (head -1 always picks GPU 0 which may be full).
+    FREE_MIG=$(python3 - << 'PYEOF'
+import subprocess, re, sys
+try:
+    # All MIG UUIDs and their parent GPU
+    out = subprocess.check_output(['nvidia-smi', '-L'], text=True)
+    mig_list = []
+    cur_gpu = None
+    for line in out.splitlines():
+        m = re.search(r'GPU \d+.*UUID: (GPU-[a-f0-9-]+)', line)
+        if m:
+            cur_gpu = m.group(1)
+        mm = re.search(r'(MIG-[a-f0-9-]+)', line)
+        if mm and cur_gpu and '1g.' not in line:   # skip tiny 1g.* slices
+            mig_list.append((mm.group(1), cur_gpu))
+
+    # Memory currently in use per parent GPU
+    proc = subprocess.check_output(
+        ['nvidia-smi','--query-compute-apps=gpu_uuid,used_memory','--format=csv,noheader'],
+        text=True, stderr=subprocess.DEVNULL)
+    busy = {}
+    for ln in proc.strip().splitlines():
+        if ln.strip():
+            parts = ln.split(',')
+            busy[parts[0].strip()] = busy.get(parts[0].strip(),0) + int(parts[1].strip().split()[0])
+
+    # First MIG on a GPU with < 10 000 MiB in use
+    for mig, gpu in mig_list:
+        if busy.get(gpu, 0) < 10000:
+            print(mig); sys.exit(0)
+except Exception as e:
+    print('', end='')   # fall through
+PYEOF
+)
+    if [ -n "$FREE_MIG" ]; then
+        export CUDA_VISIBLE_DEVICES="$FREE_MIG"
+        echo "Selected free MIG: $FREE_MIG"
+    else
+        echo "WARNING: Could not find a free MIG — using default CUDA device selection"
     fi
 fi
 
