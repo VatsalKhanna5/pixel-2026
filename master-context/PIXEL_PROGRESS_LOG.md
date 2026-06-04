@@ -340,6 +340,38 @@ tail -f logs/pbs_disc.log                  # once job creates it
 
 ---
 
+### Session 12 — June 4, 2026 (Phase 5 Launch)
+**Status at start:** Phase 4 complete; git cleaned up (*.npy added to .gitignore)
+
+**Work done:**
+- Git cleanup: added `*.npy`/`*.npz` to .gitignore; committed `disc_summary.json`
+- Implemented all Phase 5 core components (commit `e795ab1`):
+  - `src/evaluation/baselines.py` — Det-CNN + cVAE architectures
+  - `src/training/train_baselines.py` — training loop, BCE/ELBO, AdamW
+  - `src/evaluation/full_eval.py` — full comparative eval (PIXEL vs baselines + 3 ablations)
+  - `src/utils/visualization.py` — paper figures (metrics bar, ablation, diversity scatter)
+  - `experiments/configs/base_config.yaml` — added `baselines` section
+- Submitted PBS job **22703** (`pixel_baselines`) — Det-CNN + cVAE training (6h walltime)
+
+**Phase 5 plan:**
+| Step | Description | Status |
+|---|---|---|
+| 5.1 | Train Det-CNN + cVAE baselines | 🟡 Job 22703 running |
+| 5.2 | Full comparative evaluation (200 specs) | 🔴 Awaiting baselines |
+| 5.3 | Generate paper figures | 🔴 Awaiting full eval |
+| 5.4 | EM verification (OpenEMS) | 🔴 Needs OpenEMS setup |
+| 5.5 | Paper writing (AAAI-2027) | 🔴 Not started |
+
+**Monitor with:**
+```bash
+tail -f logs/pbs_baselines.log
+qstat -u ec_23104075
+```
+
+**Status at end:** Phase 5 in progress — baselines training running.
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -349,7 +381,7 @@ tail -f logs/pbs_disc.log                  # once job creates it
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
 | 3 | Denoiser / Generative Model | ✅ Complete | 100% |
 | 4 | Physics-Guided Sampling | ✅ Complete | 100% |
-| 5 | Evaluation & Paper | 🔴 Not started | 0% |
+| 5 | Evaluation & Paper | 🟡 In Progress — baselines training (job 22703) | 20% |
 
 ---
 
