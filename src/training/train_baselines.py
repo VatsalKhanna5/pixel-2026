@@ -122,12 +122,28 @@ def train_det_cnn(cfg, device: torch.device, out_dir: Path) -> None:
     wandb.init(project=cfg.wandb.project + "-baselines", name="det_cnn_v1",
                config={"model": "det_cnn", "lr": lr, "epochs": epochs,
                        "embed_dim": embed_dim},
-               mode=cfg.wandb.get("mode", "offline"), dir=str(out_dir))
+               mode=cfg.wandb.get("mode", "offline"), dir=str(out_dir),
+               resume="allow", id="det_cnn_v1_run")
 
-    best_val = float("inf")
-    ckpt_path = out_dir / "det_cnn_best.pt"
+    best_val   = float("inf")
+    start_ep   = 1
+    ckpt_path  = out_dir / "det_cnn_best.pt"
+    last_path  = out_dir / "det_cnn_last.pt"
 
-    for ep in range(1, epochs + 1):
+    if last_path.exists():
+        ck = torch.load(last_path, map_location=device, weights_only=False)
+        model.load_state_dict(ck["model_state"])
+        opt.load_state_dict(ck["opt_state"])
+        sched.load_state_dict(ck["sched_state"])
+        start_ep = ck["epoch"] + 1
+        best_val = ck["best_val"]
+        print(f"[resume] Det-CNN from epoch {ck['epoch']}, best_val={best_val:.4f}", flush=True)
+
+    if start_ep > epochs:
+        print(f"[Det-CNN] already complete ({epochs} epochs). Skipping.", flush=True)
+        wandb.finish(); return
+
+    for ep in range(start_ep, epochs + 1):
         model.train()
         tr_loss = 0.0
         for x, y in train_dl:
@@ -152,6 +168,11 @@ def train_det_cnn(cfg, device: torch.device, out_dir: Path) -> None:
             best_val = val_loss
             torch.save({"model_state": model.state_dict(),
                         "epoch": ep, "val_loss": val_loss}, ckpt_path)
+
+        # Save resume checkpoint every epoch
+        torch.save({"model_state": model.state_dict(), "opt_state": opt.state_dict(),
+                    "sched_state": sched.state_dict(), "epoch": ep,
+                    "best_val": best_val}, last_path)
 
         if ep % 10 == 0 or ep == 1:
             print(f"  [ep {ep:3d}/{epochs}] train={tr_loss:.4f}  val={val_loss:.4f}  "
@@ -201,12 +222,28 @@ def train_cvae(cfg, device: torch.device, out_dir: Path) -> None:
     wandb.init(project=cfg.wandb.project + "-baselines", name="cvae_v1",
                config={"model": "cvae", "lr": lr, "epochs": epochs,
                        "latent_dim": latent_dim, "beta": beta},
-               mode=cfg.wandb.get("mode", "offline"), dir=str(out_dir))
+               mode=cfg.wandb.get("mode", "offline"), dir=str(out_dir),
+               resume="allow", id="cvae_v1_run")
 
-    best_val = float("inf")
+    best_val  = float("inf")
+    start_ep  = 1
     ckpt_path = out_dir / "cvae_best.pt"
+    last_path = out_dir / "cvae_last.pt"
 
-    for ep in range(1, epochs + 1):
+    if last_path.exists():
+        ck = torch.load(last_path, map_location=device, weights_only=False)
+        model.load_state_dict(ck["model_state"])
+        opt.load_state_dict(ck["opt_state"])
+        sched.load_state_dict(ck["sched_state"])
+        start_ep = ck["epoch"] + 1
+        best_val = ck["best_val"]
+        print(f"[resume] cVAE from epoch {ck['epoch']}, best_val={best_val:.4f}", flush=True)
+
+    if start_ep > epochs:
+        print(f"[cVAE] already complete ({epochs} epochs). Skipping.", flush=True)
+        wandb.finish(); return
+
+    for ep in range(start_ep, epochs + 1):
         model.train()
         tr = {"loss": 0.0, "bce": 0.0, "kl": 0.0}
         for x, y in train_dl:
@@ -229,6 +266,11 @@ def train_cvae(cfg, device: torch.device, out_dir: Path) -> None:
             best_val = val_loss
             torch.save({"model_state": model.state_dict(),
                         "epoch": ep, "val_loss": val_loss}, ckpt_path)
+
+        # Save resume checkpoint every epoch
+        torch.save({"model_state": model.state_dict(), "opt_state": opt.state_dict(),
+                    "sched_state": sched.state_dict(), "epoch": ep,
+                    "best_val": best_val}, last_path)
 
         if ep % 10 == 0 or ep == 1:
             print(f"  [ep {ep:3d}/{epochs}] loss={tr['loss']:.4f}  bce={tr['bce']:.4f}  "
