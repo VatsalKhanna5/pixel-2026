@@ -261,6 +261,43 @@ qstat -u ec_23104075                        # job status
 
 ---
 
+### Session 10 — June 4, 2026 (Phase 4 Implementation + Discriminator Launch)
+**Status at start:** Phase 3 complete; Phase 4 files created in previous session but never committed (context ran out mid-PBS-script creation)
+
+**Work done:**
+- Resumed from previous session state — all Phase 4 source files verified intact
+- Created `scripts/pbs_guided_eval.pbs` (was missing — session cut off mid-write)
+- Committed all 5 Phase 4 source files (commit `e037e3b`)
+- Submitted discriminator training PBS job 22692 (workq, currently running)
+
+**Phase 4 files committed (commit e037e3b):**
+| File | Purpose |
+|---|---|
+| `src/models/connectivity_disc.py` | Discriminator: (B,2,H,W) → D_conn ∈[0,1], ~11k params |
+| `src/losses/topology_losses.py` | connectivity_loss + width_loss + spacing_loss + drc_loss |
+| `src/training/train_discriminator.py` | Balanced dataset + BCE + AdamW, 50 epochs, AUC gate >0.95 |
+| `src/guidance/physics_guidance.py` | Full PIXEL guided sampling loop (logit guidance + CFG) |
+| `src/evaluation/guided_eval.py` | 100-sample scorecard vs Phase 3 baseline |
+
+**Key Phase 4 theoretical clarifications (locked):**
+1. Gradient w.r.t. **logits** (leaf), NOT denoiser weights
+2. Guidance applied to conditional logits BEFORE CFG combination
+3. Physics loss on normalised y* (÷π) — consistent with Phase 2 convention
+4. α_t is **per-sample**: α = α_max/(σ̂+ε)·η_t, shape (B,)
+5. Negatives for discriminator: random binary + middle-column zeroed layouts
+6. EM verification deferred to Phase 5 (OpenEMS not on HPC); surrogate proxy valid
+
+**Status at end:** Phase 4 discriminator training running (job 22692). Next: monitor disc training → check AUC gate → submit guided_eval job.
+
+**Monitor with:**
+```bash
+cat /var/spool/pbs/spool/22692.master.OU   # live output
+qstat -u ec_23104075                        # job status
+tail -f logs/pbs_disc.log                  # once job creates it
+```
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -269,7 +306,7 @@ qstat -u ec_23104075                        # job status
 | 1 | Dataset Generation | ✅ Complete | 100% |
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
 | 3 | Denoiser / Generative Model | ✅ Complete | 100% |
-| 4 | Physics-Guided Sampling | 🔴 Not started | 0% |
+| 4 | Physics-Guided Sampling | 🟡 In Progress — disc training (job 22692) | 25% |
 | 5 | Evaluation & Paper | 🔴 Not started | 0% |
 
 ---
