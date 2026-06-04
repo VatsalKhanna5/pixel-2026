@@ -103,7 +103,7 @@ def guided_reverse_step(
 
             # Surrogate: mean prediction + uncertainty
             mean_pred, var_pred = surrogate_ens(x_aug)            # (B, 4, 100) each
-            sigma = var_pred.mean(dim=(1, 2, 3)).sqrt()            # (B,) uncertainty
+            sigma = var_pred.mean(dim=(1, 2)).sqrt()               # (B,) uncertainty
 
             # Physics loss: magnitude-weighted (phase noisier from Phase 2 analysis)
             L_phys = (
