@@ -94,8 +94,8 @@ def train_det_cnn(cfg, device: torch.device, out_dir: Path) -> None:
     idx = rng.permutation(N)
     n_train = int(N * cfg.dataset.train_frac)
     n_val   = int(N * cfg.dataset.val_frac)
-    train_idx = idx[:n_train]
-    val_idx   = idx[n_train:n_train + n_val]
+    train_idx = np.sort(idx[:n_train])            # h5py requires sorted indices
+    val_idx   = np.sort(idx[n_train:n_train + n_val])
 
     train_ds = PixelDataset(h5, train_idx)
     val_ds   = PixelDataset(h5, val_idx)
@@ -176,8 +176,8 @@ def train_cvae(cfg, device: torch.device, out_dir: Path) -> None:
     idx = rng.permutation(N)
     n_train = int(N * cfg.dataset.train_frac)
     n_val   = int(N * cfg.dataset.val_frac)
-    train_ds = PixelDataset(h5, idx[:n_train])
-    val_ds   = PixelDataset(h5, idx[n_train:n_train + n_val])
+    train_ds = PixelDataset(h5, np.sort(idx[:n_train]))
+    val_ds   = PixelDataset(h5, np.sort(idx[n_train:n_train + n_val]))
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
                           num_workers=4, pin_memory=True, drop_last=True)
     val_dl   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
