@@ -274,6 +274,10 @@ tb_logs/
 *.ckpt
 *.safetensors
 
+# NumPy binary arrays (large experiment outputs)
+*.npy
+*.npz
+
 # Compiled Python extensions (OpenEMS .so files)
 *.so
 *.pyd
