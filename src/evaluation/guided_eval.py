@@ -58,15 +58,42 @@ def compute_connectivity(layouts: torch.Tensor) -> float:
     return n_pass / max(len(arr), 1)
 
 
+def remove_floating_islands(layout: np.ndarray, port1: tuple, port2: tuple) -> np.ndarray:
+    """
+    Remove conductor pixels not reachable from either port.
+    Standard PCB DRC step: floating conductors are non-functional and removed.
+    """
+    from scipy.ndimage import label
+    conductor = (layout == 1)
+    labeled, _ = label(conductor)
+    reachable = set()
+    for r, c in [port1, port2]:
+        if conductor[r, c]:
+            reachable.add(labeled[r, c])
+    reachable.discard(0)
+    keep = np.zeros_like(conductor)
+    for comp in reachable:
+        keep |= (labeled == comp)
+    cleaned = layout.copy()
+    cleaned[conductor & ~keep] = 0
+    return cleaned
+
+
+def clean_batch(layouts: torch.Tensor, port1: tuple, port2: tuple) -> torch.Tensor:
+    """Apply floating-island removal to a batch of layouts."""
+    arr = layouts.cpu().numpy()
+    cleaned = np.stack([remove_floating_islands(arr[i], port1, port2)
+                        for i in range(len(arr))])
+    return torch.from_numpy(cleaned)
+
+
 def compute_drc_pass(layouts: torch.Tensor) -> float:
-    """Check minimum trace width ≥ 2 pixels using 4-connectivity erosion."""
+    """Check: no isolated single-pixel conductors (4-connected) anywhere in layout."""
+    from scipy.ndimage import label
     arr = (layouts.cpu().numpy() == 1).astype(np.float32)
     n_pass = 0
     for i in range(len(arr)):
-        x = arr[i]
-        # Check: no isolated single-pixel conductors (4-connected)
-        from scipy.ndimage import label
-        labeled, n_comp = label(x)
+        labeled, n_comp = label(arr[i])
         has_single_px = any(
             (labeled == c).sum() == 1 for c in range(1, n_comp + 1)
         )
@@ -258,8 +285,19 @@ def main() -> None:
             "all_pass": (conn > 0.95 and drc > 0.90 and sp_mse["s21_mse"] < 0.05),
         }
 
+    # Port positions for island removal
+    p1 = tuple(cfg.dataset.port1)   # (7, 0)
+    p2 = tuple(cfg.dataset.port2)   # (7, 14)
+
     guided_metrics  = eval_all(guided_layouts,  y_star, "PIXEL (guided)")
     baseline_metrics = eval_all(baseline_layouts, y_star, "CFG-only baseline")
+
+    # ── Post-processed (floating-island removal) ───────────────────────────
+    print("\n[post] Removing floating islands (standard PCB DRC cleanup) …")
+    guided_clean   = clean_batch(guided_layouts,   p1, p2)
+    baseline_clean = clean_batch(baseline_layouts, p1, p2)
+    guided_clean_metrics   = eval_all(guided_clean,   y_star, "PIXEL (guided, cleaned)")
+    baseline_clean_metrics = eval_all(baseline_clean, y_star, "CFG-only (cleaned)")
 
     # ── Delta: guided improvement over baseline ────────────────────────────
     print("\n=== IMPROVEMENT: PIXEL vs CFG-only ===")
@@ -270,22 +308,21 @@ def main() -> None:
         delta = (g - b) / max(abs(b), 1e-8) * 100
         print(f"  {key:20s}: guided={g:.4f}  base={b:.4f}  Δ={delta:+.1f}% {arrow}")
 
-    # ── Final gate check ───────────────────────────────────────────────────
-    print("\n=== CHECKPOINT P4 GATE CHECK ===")
+    # ── Final gate check (cleaned layouts as primary metric) ──────────────
+    print("\n=== CHECKPOINT P4 GATE CHECK (primary: post-processed) ===")
     gates = [
-        ("Connectivity yield (guided)",  guided_metrics["conn_yield"],  0.95, ">0.95"),
-        ("DRC pass rate (guided)",        guided_metrics["drc_pass"],    0.90, ">0.90"),
-        ("Surrogate S21 MSE (guided)",    guided_metrics["s21_mse"],     0.05, "<0.05"),
-        ("Time per sample",               guided_metrics["time_per_sample_s"], 60, "<60s"),
+        ("Connectivity yield (guided)",        guided_metrics["conn_yield"],        0.95, ">0.95"),
+        ("DRC pass — raw (guided)",             guided_metrics["drc_pass"],          0.90, ">0.90"),
+        ("DRC pass — cleaned (guided)",         guided_clean_metrics["drc_pass"],    0.90, ">0.90"),
+        ("Surrogate S21 MSE (guided)",          guided_metrics["s21_mse"],           0.05, "<0.05"),
+        ("Surrogate S21 MSE (guided, cleaned)", guided_clean_metrics["s21_mse"],     0.05, "<0.05"),
+        ("Time per sample",                     guided_metrics["time_per_sample_s"], 60,   "<60s"),
     ]
     all_pass = True
     for name, val, thresh, gate_str in gates:
-        if "<" in gate_str:
-            ok = val < thresh
-        else:
-            ok = val > thresh
+        ok = val < thresh if "<" in gate_str else val > thresh
         s = "✅ PASS" if ok else "❌ FAIL"
-        print(f"  {name:35s}  {val:.4f}  ({gate_str})  {s}")
+        print(f"  {name:45s}  {val:.4f}  ({gate_str})  {s}")
         all_pass = all_pass and ok
 
     print(f"\n  EM-verified metrics: PENDING (Phase 5 — OpenEMS verification required)")
@@ -293,8 +330,10 @@ def main() -> None:
 
     # ── Save results ──────────────────────────────────────────────────────
     summary = {
-        "guided":   guided_metrics,
-        "baseline": baseline_metrics,
+        "guided":          guided_metrics,
+        "guided_cleaned":  guided_clean_metrics,
+        "baseline":        baseline_metrics,
+        "baseline_cleaned": baseline_clean_metrics,
         "hyperparams": {
             "alpha_max": alpha_max, "t_thresh": t_thresh,
             "lambda_topo": lambda_topo, "lambda_mfg": lambda_mfg,
@@ -307,9 +346,10 @@ def main() -> None:
     print(f"\n[done] Results saved to {out_path}", flush=True)
 
     # Save generated layouts for future EM verification
-    np.save(out_dir / "guided_layouts.npy",   guided_layouts.cpu().numpy())
-    np.save(out_dir / "baseline_layouts.npy", baseline_layouts.cpu().numpy())
-    np.save(out_dir / "y_star.npy",           y_star.numpy())
+    np.save(out_dir / "guided_layouts.npy",         guided_layouts.cpu().numpy())
+    np.save(out_dir / "guided_layouts_cleaned.npy", guided_clean.cpu().numpy())
+    np.save(out_dir / "baseline_layouts.npy",       baseline_layouts.cpu().numpy())
+    np.save(out_dir / "y_star.npy",                 y_star.numpy())
     print(f"[done] Layouts saved (shape: {guided_layouts.shape})", flush=True)
 
 
