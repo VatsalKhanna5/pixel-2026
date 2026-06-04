@@ -48,27 +48,39 @@ import wandb  # noqa: E402
 # ---------------------------------------------------------------------------
 
 class PixelDataset(Dataset):
-    """Layout + S-param dataset for baseline training."""
+    """
+    Layout + S-param dataset for baseline training.
+
+    Uses lazy h5py loading: each DataLoader worker opens its own file handle
+    on first access (self._f = None initially, opened on demand).  This avoids
+    forking a pre-loaded 685 MB array into every worker process.
+    """
 
     def __init__(self, h5_path: str, indices: np.ndarray, phase_norm: bool = True) -> None:
         self.h5_path    = h5_path
-        self.indices    = indices
+        self.indices    = indices   # sorted (required by h5py fancy-index)
         self.phase_norm = phase_norm
-        with h5py.File(h5_path, "r") as f:
-            self.s11m = f["S11_mag"][indices].astype(np.float32)
-            self.s21m = f["S21_mag"][indices].astype(np.float32)
-            self.s11p = f["S11_phase"][indices].astype(np.float32)
-            self.s21p = f["S21_phase"][indices].astype(np.float32)
-            self.layouts = f["layout"][indices].astype(np.float32)
+        self._f         = None      # opened lazily per worker process
+
+    def _file(self) -> h5py.File:
+        if self._f is None:
+            self._f = h5py.File(self.h5_path, "r")
+        return self._f
 
     def __len__(self) -> int:
         return len(self.indices)
 
     def __getitem__(self, i: int):
-        pi = math.pi if self.phase_norm else 1.0
-        y = np.stack([self.s11m[i], self.s21m[i],
-                      self.s11p[i] / pi, self.s21p[i] / pi], axis=0)  # (4, N_f)
-        x = self.layouts[i][None]   # (1, 15, 15)
+        idx = int(self.indices[i])
+        f   = self._file()
+        pi  = math.pi if self.phase_norm else 1.0
+        y = np.stack([
+            f["S11_mag"][idx].astype(np.float32),
+            f["S21_mag"][idx].astype(np.float32),
+            f["S11_phase"][idx].astype(np.float32) / pi,
+            f["S21_phase"][idx].astype(np.float32) / pi,
+        ], axis=0)                          # (4, N_f)
+        x = f["layout"][idx].astype(np.float32)[None]   # (1, 15, 15)
         return torch.from_numpy(x), torch.from_numpy(y)
 
 
@@ -100,9 +112,9 @@ def train_det_cnn(cfg, device: torch.device, out_dir: Path) -> None:
     train_ds = PixelDataset(h5, train_idx)
     val_ds   = PixelDataset(h5, val_idx)
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
-                          num_workers=4, pin_memory=True, drop_last=True)
+                          num_workers=2, pin_memory=True, drop_last=True)
     val_dl   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
-                          num_workers=4, pin_memory=True)
+                          num_workers=2, pin_memory=True)
 
     opt  = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs, eta_min=1e-6)
@@ -179,9 +191,9 @@ def train_cvae(cfg, device: torch.device, out_dir: Path) -> None:
     train_ds = PixelDataset(h5, np.sort(idx[:n_train]))
     val_ds   = PixelDataset(h5, np.sort(idx[n_train:n_train + n_val]))
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
-                          num_workers=4, pin_memory=True, drop_last=True)
+                          num_workers=2, pin_memory=True, drop_last=True)
     val_dl   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
-                          num_workers=4, pin_memory=True)
+                          num_workers=2, pin_memory=True)
 
     opt   = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs, eta_min=1e-6)
