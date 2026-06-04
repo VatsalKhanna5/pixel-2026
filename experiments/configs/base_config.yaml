@@ -131,6 +131,21 @@ denoiser:
   ema_decay: 0.9999
 
 # -----------------------------------------------------------
+# Phase 5 Baseline Models
+# -----------------------------------------------------------
+baselines:
+  det_cnn:
+    lr: 3.0e-4
+    batch_size: 512
+    epochs: 100
+  cvae:
+    lr: 3.0e-4
+    batch_size: 512
+    epochs: 100
+    latent_dim: 64
+    beta: 1.0            # KL weight in ELBO
+
+# -----------------------------------------------------------
 # Connectivity Discriminator
 # -----------------------------------------------------------
 discriminator:

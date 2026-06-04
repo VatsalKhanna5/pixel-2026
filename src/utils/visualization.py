@@ -1,195 +1,265 @@
 """
 src/utils/visualization.py
-PIXEL-2026 — Visualisation utilities.
+============================
+Phase 5 — Paper figure generation for PIXEL-2026.
 
-Provides:
-  - plot_layout()        : render a 15×15 binary EM layout
-  - plot_sparams()       : plot S11/S21 magnitude and phase vs. frequency
-  - plot_layout_grid()   : tile multiple layouts for comparison
-  - plot_training_curve(): smoothed loss curve with optional WandB sync
+Generates all figures needed for the AAAI-2027 paper:
+  Fig 1: Example generated layouts (PIXEL vs baselines)
+  Fig 2: S-parameter comparison (target vs surrogate-predicted)
+  Fig 3: Evaluation metrics bar chart (all methods)
+  Fig 4: Ablation study bar chart
+  Fig 5: Diversity scatter (Hamming vs S21 MSE)
+
+All figures saved to paper/figures/ as PDF + PNG.
+
+Usage:
+    python -m src.utils.visualization \\
+        --eval-dir experiments/full_eval_v1 \\
+        --out-dir paper/figures
 """
 
 from __future__ import annotations
 
-import math
+import argparse
+import json
 from pathlib import Path
-from typing import Sequence
 
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
-
-matplotlib.use("Agg")   # non-interactive backend safe for all environments
-
-
-FREQ_UNIT = 1e9   # display frequencies in GHz
-
-
-def plot_layout(
-    layout: np.ndarray,
-    title: str = "EM Layout",
-    port1: tuple[int, int] = (7, 0),
-    port2: tuple[int, int] = (7, 14),
-    save_path: str | Path | None = None,
-    ax: plt.Axes | None = None,
-) -> plt.Figure:
-    """
-    Render a binary 15×15 EM layout.
-
-    Conductors are black, dielectric is white, port pixels are marked in red.
-
-    Args:
-        layout:    np.ndarray of shape (H, W), values in {0, 1}.
-        title:     Plot title.
-        port1/2:   (row, col) of port pixels — highlighted in red.
-        save_path: If given, save the figure there.
-        ax:        Existing Axes to draw on (creates new figure if None).
-
-    Returns:
-        The matplotlib Figure object.
-    """
-    standalone = ax is None
-    if standalone:
-        fig, ax = plt.subplots(figsize=(4, 4))
-    else:
-        fig = ax.get_figure()
-
-    disp = np.where(layout == 1, 0.0, 1.0)   # 1=conductor → black (0); 0=void → white (1)
-    ax.imshow(disp, cmap="gray", vmin=0, vmax=1, origin="upper")
-
-    # Mark ports
-    for (r, c), label in [(port1, "P1"), (port2, "P2")]:
-        ax.scatter(c, r, color="red", s=80, zorder=5)
-        ax.text(c + 0.4, r, label, color="red", fontsize=7, va="center")
-
-    ax.set_title(title, fontsize=9)
-    ax.set_xticks([]); ax.set_yticks([])
-    ax.set_xlabel(f"{layout.shape[1]} px", fontsize=7)
-    ax.set_ylabel(f"{layout.shape[0]} px", fontsize=7)
-
-    if save_path is not None and standalone:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-    return fig
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 
-def plot_sparams(
-    freqs_hz: np.ndarray,
-    s11_mag: np.ndarray,
-    s21_mag: np.ndarray,
-    s11_target: np.ndarray | None = None,
-    s21_target: np.ndarray | None = None,
-    title: str = "S-Parameters",
-    save_path: str | Path | None = None,
-) -> plt.Figure:
-    """
-    Plot S11 and S21 magnitude (dB) vs. frequency.
+# ---------------------------------------------------------------------------
+# Style constants
+# ---------------------------------------------------------------------------
 
-    Args:
-        freqs_hz:   Frequency array in Hz, shape (N_f,).
-        s11_mag:    |S11| in linear scale, shape (N_f,).
-        s21_mag:    |S21| in linear scale, shape (N_f,).
-        s11_target: Optional target |S11|.
-        s21_target: Optional target |S21|.
-        title:      Plot title.
-        save_path:  If given, save the figure.
+COLORS = {
+    "pixel_guided":         "#2196F3",
+    "cfg_only":             "#9C27B0",
+    "det_cnn":              "#F44336",
+    "cvae":                 "#FF9800",
+    "ablation_no_topo":     "#607D8B",
+    "ablation_no_drc":      "#78909C",
+    "ablation_no_guidance": "#90A4AE",
+}
 
-    Returns:
-        The matplotlib Figure.
-    """
-    freqs_ghz = freqs_hz / FREQ_UNIT
+LAYOUT_CMAP = ListedColormap(["#FFFFFF", "#1565C0"])   # white=dielectric, blue=conductor
 
-    # Clamp to avoid log(0)
-    s11_db = 20 * np.log10(np.clip(s11_mag, 1e-10, None))
-    s21_db = 20 * np.log10(np.clip(s21_mag, 1e-10, None))
+plt.rcParams.update({
+    "font.family":   "serif",
+    "font.size":     11,
+    "axes.labelsize": 12,
+    "axes.titlesize": 12,
+    "legend.fontsize": 10,
+    "figure.dpi":    150,
+    "savefig.dpi":   300,
+    "savefig.bbox":  "tight",
+})
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), sharex=True)
-    fig.suptitle(title, fontsize=10)
 
-    ax1.plot(freqs_ghz, s11_db, "b-", linewidth=1.5, label="|S₁₁| generated")
-    if s11_target is not None:
-        t_db = 20 * np.log10(np.clip(s11_target, 1e-10, None))
-        ax1.plot(freqs_ghz, t_db, "r--", linewidth=1.2, label="|S₁₁| target")
-    ax1.set_ylabel("|S₁₁| (dB)"); ax1.set_xlabel("Frequency (GHz)")
-    ax1.legend(fontsize=8); ax1.grid(True, alpha=0.4)
-    ax1.set_ylim([-50, 5])
+# ---------------------------------------------------------------------------
+# Figure 1: Layout gallery
+# ---------------------------------------------------------------------------
 
-    ax2.plot(freqs_ghz, s21_db, "g-", linewidth=1.5, label="|S₂₁| generated")
-    if s21_target is not None:
-        t_db = 20 * np.log10(np.clip(s21_target, 1e-10, None))
-        ax2.plot(freqs_ghz, t_db, "r--", linewidth=1.2, label="|S₂₁| target")
-    ax2.set_ylabel("|S₂₁| (dB)"); ax2.set_xlabel("Frequency (GHz)")
-    ax2.legend(fontsize=8); ax2.grid(True, alpha=0.4)
-    ax2.set_ylim([-50, 5])
+def fig_layout_gallery(
+    layouts_dict: dict,     # {label: (N, 15, 15) ndarray, values 0 or 1}
+    n_show: int = 5,
+    out_path: Path = None,
+) -> None:
+    methods = list(layouts_dict.keys())
+    fig, axes = plt.subplots(len(methods), n_show,
+                             figsize=(2.5 * n_show, 2.2 * len(methods)))
+    if len(methods) == 1:
+        axes = axes[None]
 
+    rng = np.random.default_rng(0)
+    for row, label in enumerate(methods):
+        arr = (layouts_dict[label] == 1).astype(float)
+        idxs = rng.choice(len(arr), size=n_show, replace=False)
+        for col, i in enumerate(idxs):
+            ax = axes[row, col]
+            ax.imshow(arr[i], cmap=LAYOUT_CMAP, vmin=0, vmax=1,
+                      interpolation="nearest")
+            ax.set_xticks([]); ax.set_yticks([])
+            if col == 0:
+                ax.set_ylabel(label, fontsize=9, rotation=0, labelpad=70, va="center")
+            if row == 0:
+                ax.set_title(f"Sample {col+1}", fontsize=9)
+            ax.plot(0,  7, "r>", markersize=5, clip_on=False)
+            ax.plot(14, 7, "g>", markersize=5, clip_on=False)
+
+    fig.suptitle("Generated EM Layouts — PIXEL vs Baselines", y=1.01)
     plt.tight_layout()
-    if save_path is not None:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-    return fig
+    _save(fig, out_path, "layout_gallery")
 
 
-def plot_layout_grid(
-    layouts: np.ndarray,
-    titles: Sequence[str] | None = None,
-    ncols: int = 5,
-    save_path: str | Path | None = None,
-) -> plt.Figure:
-    """
-    Tile multiple layouts in a grid for comparison.
+# ---------------------------------------------------------------------------
+# Figure 2: S-parameter comparison
+# ---------------------------------------------------------------------------
 
-    Args:
-        layouts:   np.ndarray of shape (N, H, W).
-        titles:    Optional list of N title strings.
-        ncols:     Number of columns in the grid.
-        save_path: If given, save the figure.
+def fig_sparams(
+    y_star:      np.ndarray,    # (N, 4, 100) target (normalised)
+    y_pred_dict: dict,          # {label: (N, 4, 100)}
+    freq_ghz:    np.ndarray,    # (100,)
+    n_show: int = 3,
+    out_path: Path = None,
+) -> None:
+    rng = np.random.default_rng(1)
+    idxs = rng.choice(len(y_star), size=n_show, replace=False)
+    palette = list(COLORS.values())
 
-    Returns:
-        The matplotlib Figure.
-    """
-    N = len(layouts)
-    nrows = math.ceil(N / ncols)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 2.5, nrows * 2.5))
-    axes = np.array(axes).flatten()
-
-    for i, ax in enumerate(axes):
-        if i < N:
-            t = titles[i] if titles else f"#{i}"
-            plot_layout(layouts[i], title=t, ax=ax)
-        else:
-            ax.set_visible(False)
-
+    fig, axes = plt.subplots(1, n_show, figsize=(4.2 * n_show, 3.5), sharey=True)
+    for col, i in enumerate(idxs):
+        ax = axes[col]
+        ax.plot(freq_ghz, y_star[i, 1], "k-", lw=2, label="Target", zorder=5)
+        for (lbl, yp), color in zip(y_pred_dict.items(), palette):
+            ax.plot(freq_ghz, yp[i, 1], "--", color=color, lw=1.2, label=lbl)
+        ax.set_xlabel("Frequency (GHz)")
+        if col == 0:
+            ax.set_ylabel(r"$|S_{21}|$ (normalised)")
+        ax.set_title(f"Spec #{i}")
+        ax.grid(True, alpha=0.3)
+        if col == 0:
+            ax.legend(fontsize=8)
+    fig.suptitle(r"$|S_{21}|$ Target vs Surrogate-Predicted Outputs")
     plt.tight_layout()
-    if save_path is not None:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-    return fig
+    _save(fig, out_path, "sparams_comparison")
 
 
-def smooth(values: np.ndarray, window: int = 20) -> np.ndarray:
-    """Uniform moving average for loss curve smoothing."""
-    if len(values) < window:
-        return values
-    kernel = np.ones(window) / window
-    return np.convolve(values, kernel, mode="valid")
+# ---------------------------------------------------------------------------
+# Figure 3: Metrics bar chart (all methods)
+# ---------------------------------------------------------------------------
 
+def fig_metrics_bar(results: dict, out_path: Path = None) -> None:
+    method_keys = [k for k in results if not k.startswith("ablation")]
+    labels = [results[k]["label"] for k in method_keys]
+    colors = [COLORS.get(k, "#607D8B") for k in method_keys]
 
-def plot_training_curve(
-    losses: Sequence[float],
-    val_losses: Sequence[float] | None = None,
-    title: str = "Training Loss",
-    save_path: str | Path | None = None,
-) -> plt.Figure:
-    """Plot training (and optional validation) loss curve."""
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.plot(losses, alpha=0.3, color="steelblue", linewidth=0.8)
-    ax.plot(smooth(np.array(losses)), color="steelblue", linewidth=1.5, label="train (smoothed)")
-    if val_losses is not None:
-        ax.plot(val_losses, color="tomato", linewidth=1.5, label="val")
-    ax.set_xlabel("Step"); ax.set_ylabel("Loss")
-    ax.set_title(title); ax.legend(fontsize=8); ax.grid(True, alpha=0.3)
+    metrics_spec = [
+        ("Connectivity\nyield",    [results[k]["conn_clean"] for k in method_keys], 0.95),
+        ("DRC pass\n(post-proc)",  [results[k]["drc_clean"]  for k in method_keys], 0.90),
+        ("S21 MSE (×0.01)",        [results[k]["s21_mse"] * 100 for k in method_keys], 5.0),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+    x = np.arange(len(labels))
+    for ax, (name, vals, gate) in zip(axes, metrics_spec):
+        bars = ax.bar(x, vals, 0.6, color=colors, edgecolor="white", lw=0.8)
+        ax.axhline(gate, color="red", lw=1.5, ls="--", label=f"Gate={gate}")
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=9)
+        ax.set_title(name)
+        ax.set_ylim(0, max(vals) * 1.25 if max(vals) > 0 else 1)
+        for bar, v in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.01 * max(max(vals), gate),
+                    f"{v:.3f}", ha="center", va="bottom", fontsize=8)
+        ax.legend(fontsize=8)
+
+    fig.suptitle("PIXEL vs Baselines — Key Metrics", fontsize=13)
     plt.tight_layout()
-    if save_path is not None:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-    return fig
+    _save(fig, out_path, "metrics_bar")
+
+
+# ---------------------------------------------------------------------------
+# Figure 4: Ablation bar chart
+# ---------------------------------------------------------------------------
+
+def fig_ablation(results: dict, out_path: Path = None) -> None:
+    abl_keys = ["pixel_guided"] + [k for k in results if k.startswith("ablation")]
+    if len(abl_keys) < 2:
+        print("[fig] No ablation results to plot — skipping ablation figure")
+        return
+    labels = [results[k]["label"] for k in abl_keys]
+    colors = [COLORS["pixel_guided"]] + [COLORS.get(k, "#607D8B") for k in abl_keys[1:]]
+
+    specs = [
+        ("Connectivity\n(cleaned)", [results[k]["conn_clean"] for k in abl_keys]),
+        ("S21 MSE",                 [results[k]["s21_mse"]    for k in abl_keys]),
+        ("Hamming diversity",       [results[k]["hamming"]    for k in abl_keys]),
+    ]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+    x = np.arange(len(labels))
+    for ax, (name, vals) in zip(axes, specs):
+        bars = ax.bar(x, vals, 0.6, color=colors, edgecolor="white")
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=25, ha="right", fontsize=8)
+        ax.set_title(name)
+        for bar, v in zip(bars, vals):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.005 * max(vals),
+                    f"{v:.3f}", ha="center", va="bottom", fontsize=8)
+
+    fig.suptitle("Ablation Study — Contribution of Each Guidance Component", fontsize=13)
+    plt.tight_layout()
+    _save(fig, out_path, "ablation_study")
+
+
+# ---------------------------------------------------------------------------
+# Figure 5: Diversity vs accuracy scatter
+# ---------------------------------------------------------------------------
+
+def fig_diversity_scatter(results: dict, out_path: Path = None) -> None:
+    fig, ax = plt.subplots(figsize=(5.5, 4))
+    for key, r in results.items():
+        color = COLORS.get(key, "#607D8B")
+        ax.scatter(r["s21_mse"], r["hamming"], s=120, color=color, zorder=5,
+                   edgecolors="white", lw=0.8, label=r["label"])
+        ax.annotate(r["label"], (r["s21_mse"], r["hamming"]),
+                    textcoords="offset points", xytext=(5, 3), fontsize=7.5)
+
+    ax.set_xlabel("Surrogate S21 MSE  (↓ better)")
+    ax.set_ylabel("Hamming diversity  (↑ better)")
+    ax.set_title("Accuracy vs Diversity Trade-off")
+    ax.axhline(30, color="grey", ls=":", lw=1, label="Diversity gate (30 bits)")
+    ax.legend(fontsize=8, loc="upper right")
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    _save(fig, out_path, "diversity_scatter")
+
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+def _save(fig, out_path: Path, name: str) -> None:
+    if out_path is None:
+        out_path = Path("paper/figures")
+    out_path.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path / f"{name}.pdf")
+    fig.savefig(out_path / f"{name}.png")
+    plt.close(fig)
+    print(f"[fig] Saved {name}.pdf + .png", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--eval-dir", default="experiments/full_eval_v1")
+    parser.add_argument("--out-dir",  default="paper/figures")
+    args = parser.parse_args()
+
+    summary_path = Path(args.eval_dir) / "full_eval_summary.json"
+    if not summary_path.exists():
+        print(f"[warn] {summary_path} not found — run full_eval.py first")
+        return
+
+    with open(summary_path) as f:
+        results = json.load(f)
+
+    out_dir = Path(args.out_dir)
+    print(f"[viz] Generating paper figures …")
+    fig_metrics_bar(results, out_dir)
+    fig_ablation(results,    out_dir)
+    fig_diversity_scatter(results, out_dir)
+    print(f"[done] Figures saved to {out_dir}")
+
+
+if __name__ == "__main__":
+    main()
