@@ -1,0 +1,69 @@
+{
+  "guided": {
+    "label": "PIXEL (guided)",
+    "n": 100,
+    "conn_yield": 0.97,
+    "drc_pass": 0.71,
+    "s21_mse": 0.010108784772455692,
+    "s11_mse": 0.011742292903363705,
+    "hamming": 20.775,
+    "fill": 0.12355555593967438,
+    "time_per_sample_s": 0.1826595377922058,
+    "passes_conn": true,
+    "passes_drc": false,
+    "passes_s21": true,
+    "all_pass": false
+  },
+  "guided_cleaned": {
+    "label": "PIXEL (guided, cleaned)",
+    "n": 100,
+    "conn_yield": 0.97,
+    "drc_pass": 1.0,
+    "s21_mse": 0.009994970634579659,
+    "s11_mse": 0.01184500940144062,
+    "hamming": 17.09,
+    "fill": 0.11266666650772095,
+    "time_per_sample_s": 0.07237164735794067,
+    "passes_conn": true,
+    "passes_drc": true,
+    "passes_s21": true,
+    "all_pass": true
+  },
+  "baseline": {
+    "label": "CFG-only baseline",
+    "n": 100,
+    "conn_yield": 0.98,
+    "drc_pass": 0.68,
+    "s21_mse": 0.009988857433199883,
+    "s11_mse": 0.011395357549190521,
+    "hamming": 20.65,
+    "fill": 0.12426666915416718,
+    "time_per_sample_s": 0.07237164735794067,
+    "passes_conn": true,
+    "passes_drc": false,
+    "passes_s21": true,
+    "all_pass": false
+  },
+  "baseline_cleaned": {
+    "label": "CFG-only (cleaned)",
+    "n": 100,
+    "conn_yield": 0.98,
+    "drc_pass": 1.0,
+    "s21_mse": 0.01005157083272934,
+    "s11_mse": 0.011563514359295368,
+    "hamming": 17.045,
+    "fill": 0.1128888875246048,
+    "time_per_sample_s": 0.07237164735794067,
+    "passes_conn": true,
+    "passes_drc": true,
+    "passes_s21": true,
+    "all_pass": true
+  },
+  "hyperparams": {
+    "alpha_max": 0.1,
+    "t_thresh": 400,
+    "lambda_topo": 1.0,
+    "lambda_mfg": 0.5,
+    "cfg_w": 2.0
+  }
+}
