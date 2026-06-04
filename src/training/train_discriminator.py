@@ -234,7 +234,7 @@ def main() -> None:
 
     wandb.init(project=cfg.wandb.project + "-disc",
                name="disc_v1",
-               config={"n_per_class": n_per_class, **vars(dcfg)},
+               config={**OmegaConf.to_container(dcfg, resolve=True), "n_per_class": n_per_class},
                mode=cfg.wandb.get("mode", "offline"),
                dir=str(out_dir))
 
