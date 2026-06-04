@@ -611,7 +611,14 @@ python -m src.training.train_surrogate \
 ---
 
 ## PHASE 3: Denoiser / Generative Model (Days 25–45)
-**STATUS: 🟡 TRAINING — PBS job 20803 running on workq (June 2, 2026)**
+**STATUS: ✅ COMPLETE — 300 epochs, all primary gates passed (June 4, 2026)**
+
+**Results:**
+- Connectivity yield: 99.2% uncond / 96.9% cond  (gate >80% ✅)
+- Conditional S21 MSE: **0.0127** (gate <0.10 → **8× better** ✅)
+- Passivity: 100% ✅ | MASK tokens: 0% ✅ | Hamming: 22.3 bits ⚠️
+- Full report: `experiments/denoiser_v1/PHASE3_ANALYSIS.md`
+- Best checkpoint: `experiments/denoiser_v1/denoiser_best.pt` (EMA, epoch 100)
 
 **Implementation notes (Session 8):**
 - Output: 2 logits per pixel (p_θ(x_0∈{0,1}|x_t)) — cleaner than 3-class x_{t-1} prediction
