@@ -1,0 +1,61 @@
+#!/bin/bash
+#PBS -N pixel_full_eval
+#PBS -q workq
+#PBS -l select=1:ncpus=16:ngpus=1
+#PBS -l walltime=08:00:00
+#PBS -j oe
+#PBS -o logs/pbs_full_eval.log
+
+cd "$PBS_O_WORKDIR"
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+export PYTHONNOUSERSITE=1
+
+if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
+    FREE_MIG=$(python3 - << 'PYEOF'
+import subprocess, re, sys
+try:
+    out = subprocess.check_output(['nvidia-smi', '-L'], text=True)
+    mig_list = []; cur_gpu = None
+    for line in out.splitlines():
+        m = re.search(r'GPU \d+.*UUID: (GPU-[a-f0-9-]+)', line)
+        if m: cur_gpu = m.group(1)
+        mm = re.search(r'(MIG-[a-f0-9-]+)', line)
+        if mm and cur_gpu and '1g.' not in line:
+            mig_list.append((mm.group(1), cur_gpu))
+    proc = subprocess.check_output(
+        ['nvidia-smi','--query-compute-apps=gpu_uuid,used_memory','--format=csv,noheader'],
+        text=True, stderr=subprocess.DEVNULL)
+    busy = {}
+    for ln in proc.strip().splitlines():
+        if ln.strip():
+            parts = ln.split(',')
+            busy[parts[0].strip()] = busy.get(parts[0].strip(),0) + int(parts[1].strip().split()[0])
+    for mig, gpu in mig_list:
+        if busy.get(gpu, 0) < 10000:
+            print(mig); sys.exit(0)
+except: pass
+PYEOF
+)
+    if [ -n "$FREE_MIG" ]; then
+        export CUDA_VISIBLE_DEVICES="$FREE_MIG"
+        echo "Selected free MIG: $FREE_MIG"
+    fi
+fi
+
+mkdir -p logs experiments/full_eval_v1 paper/figures
+
+echo "==== PIXEL-2026 Full Evaluation (Phase 5) ===="
+echo "Job ID: $PBS_JOBID  GPU: $CUDA_VISIBLE_DEVICES  $(date)"
+echo "==============================================="
+
+python -m src.evaluation.full_eval \
+    --config experiments/configs/base_config.yaml \
+    --n-test 200
+
+echo "--- Generating paper figures ---"
+python -m src.utils.visualization \
+    --eval-dir experiments/full_eval_v1 \
+    --out-dir paper/figures
+
+echo "End: $(date)  Exit: $?"

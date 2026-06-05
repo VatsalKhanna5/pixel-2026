@@ -1,0 +1,44 @@
+#!/bin/bash
+#PBS -N pixel_baselines
+#PBS -q cpuq
+#PBS -l select=1:ncpus=16:mem=32gb
+#PBS -l walltime=08:00:00
+#PBS -j oe
+#PBS -o logs/pbs_baselines.log
+
+cd "$PBS_O_WORKDIR"
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+export PYTHONNOUSERSITE=1
+export CUDA_VISIBLE_DEVICES=""   # force CPU — avoid GACP issues entirely
+
+mkdir -p logs experiments/baselines_v1
+
+# Trap SIGTERM (PBS sends this ~60s before SIGKILL on walltime) → resubmit
+_resubmit() {
+    echo "SIGTERM received (walltime approaching) — resubmitting …  $(date)"
+    qsub "$PBS_O_WORKDIR/scripts/pbs_train_baselines_cpu.pbs"
+    exit 0
+}
+trap '_resubmit' TERM
+
+echo "==== PIXEL-2026 Baseline Training (Det-CNN + cVAE) — CPU mode ===="
+echo "Job ID: $PBS_JOBID  CPUs=16  $(date)"
+echo "===================================================================="
+
+python -m src.training.train_baselines \
+    --model both \
+    --config experiments/configs/base_config.yaml &
+TRAIN_PID=$!
+wait $TRAIN_PID
+EXIT=$?
+
+echo "End: $(date)  Exit: $EXIT"
+
+# Self-resubmit if training incomplete (checkpoint/resume handles state)
+if [ $EXIT -ne 0 ] || \
+   [ ! -f experiments/baselines_v1/det_cnn_summary.json ] || \
+   [ ! -f experiments/baselines_v1/cvae_summary.json ]; then
+    echo "Training incomplete — resubmitting …"
+    qsub "$PBS_O_WORKDIR/scripts/pbs_train_baselines_cpu.pbs"
+fi

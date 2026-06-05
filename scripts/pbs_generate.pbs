@@ -1,0 +1,46 @@
+#!/bin/bash
+# ============================================================
+# PIXEL-2026 — Dataset Generation PBS Script
+# Queue : cpuq (CPU-only, max 16 cores)
+# Usage : qsub scripts/pbs_generate.pbs
+#
+# This script resumes dataset generation from the last checkpoint.
+# Runs 8 parallel OpenEMS FDTD workers for up to 24 hours.
+# Submit repeatedly until the target count is reached.
+# ============================================================
+#PBS -N pixel_generate
+#PBS -q cpuq
+#PBS -l select=1:ncpus=16
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o logs/pbs_generate.log
+
+cd "$PBS_O_WORKDIR"
+
+# ---- Conda activation ----
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+
+echo "==== PIXEL-2026 Dataset Generation ===="
+echo "Job ID     : $PBS_JOBID"
+echo "Node       : $(hostname)"
+echo "Start time : $(date)"
+echo "Workers    : 16"
+echo "======================================="
+
+# ---- Clean up stale temp dirs from previous runs (prevents disk/inode bloat) ----
+rm -rf data/tmp/pixel_sim_* 2>/dev/null
+
+# ---- Run generation (resumes automatically from checkpoint) ----
+# n-samples=1000000: effectively unlimited — job runs until 24h walltime.
+# PBS sends SIGTERM at walltime; the graceful shutdown handler saves the checkpoint.
+python -m src.dataset.generate \
+    --config experiments/configs/base_config.yaml \
+    --workers 16 \
+    --n-samples 1000000 \
+    --resume \
+    --skip-sanity \
+    --skip-pilot
+
+echo "End time : $(date)"
+echo "Exit code: $?"

@@ -247,7 +247,6 @@ nf2ff/
 # PBS job output/error logs
 *.pbs.o*
 *.pbs.e*
-*.pbs
 output_*.log
 output.log
 pbs_job_*.log
@@ -255,6 +254,10 @@ pbs_job_*.log
 # HPC PBS job IDs and batch scripts generated at runtime
 jobs/
 pbs_submit_*.sh
+
+# Track project PBS scripts (scripts/*.pbs) but ignore runtime-generated ones
+*.pbs
+!scripts/*.pbs
 
 # WandB run artefacts
 wandb/
