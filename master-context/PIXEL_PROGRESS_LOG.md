@@ -372,6 +372,52 @@ qstat -u ec_23104075
 
 ---
 
+### Session 13 — June 5–6, 2026 (Phase 5 Complete — Full Evaluation)
+**Status at start:** Phase 5 baselines training stalled (walltime-killed, self-resubmit failed)
+
+**Work done:**
+- Diagnosed walltime-kill issue: PBS sends SIGKILL (not SIGTERM) so cleanup block never ran
+- Fixed `pbs_train_baselines_cpu.pbs`: added `trap '_resubmit' TERM` + Python run in background
+- Fixed `.gitignore`: added `!scripts/*.pbs` exception — all 6 PBS scripts now tracked
+- Resubmitted cVAE training as job 22753 (cpuq) — resumed from epoch 6, completed 100 epochs
+- Fixed `full_eval.py`: `np.sort(test_idx)` — same h5py unsorted-index bug as train_baselines
+- Submitted full evaluation as job 22825 (workq, GPU MIG) — **COMPLETE**
+- Generated all 3 paper figures: metrics_bar, ablation_study, diversity_scatter
+- Wrote `experiments/full_eval_v1/PHASE5_ANALYSIS.md`
+
+**Baselines Final Results:**
+| Model | Best Val Loss | Notes |
+|---|---|---|
+| Det-CNN | 0.0395 | 100 epochs, best at ep ~18 |
+| cVAE (β=1.0) | 0.0364 | 100 epochs, stable after ep ~37 |
+
+**Full Evaluation Results (N=200 test specs):**
+| Method | Conn | DRC | S21 MSE | Hamming |
+|---|---|---|---|---|
+| **PIXEL (guided)** | **1.000** | **1.000** | 0.01052 | **20.64** |
+| CFG-only | 0.975 | 0.995 | 0.01052 | 20.44 |
+| Ablation: no topo | 0.985 | 1.000 | 0.01054 | 20.45 |
+| Ablation: no DRC | 0.975 | 0.995 | 0.01035 | 20.69 |
+| Det-CNN | 1.000 | 1.000 | 0.01291 | 19.06 |
+| cVAE (1 sample) | 1.000 | 1.000 | 0.01047 | 19.75 |
+
+**Key findings:**
+- PIXEL is the **only method** achieving 100% Conn + 100% DRC simultaneously
+- PIXEL S21 MSE matches cVAE (within 0.5%) — diffusion matches VAE accuracy
+- PIXEL Hamming diversity 20.64 > cVAE 19.75 > Det-CNN 19.06 — generative advantage confirmed
+- Det-CNN +23% worse S21 MSE — deterministic inverse mapping is fundamentally limited
+- All ablations confirm both topo and DRC guidance components are individually necessary
+
+**Commits this session:**
+- `05d94ed` — fix: track PBS scripts + SIGTERM trap
+- `048728b` — fix(full_eval): sort test_idx for h5py
+- `ed4d130` — doc: Phase-5-Det-CNN Summary (from prev session)
+- `9e91b10` — Add Baseline CVAE (from prev session)
+
+**Status at end:** Phase 5 ✅ COMPLETE. Paper figures generated. Ready for Phase 6 (EM verification + paper writing).
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -381,7 +427,8 @@ qstat -u ec_23104075
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
 | 3 | Denoiser / Generative Model | ✅ Complete | 100% |
 | 4 | Physics-Guided Sampling | ✅ Complete | 100% |
-| 5 | Evaluation & Paper | 🟡 In Progress — baselines training (job 22703) | 20% |
+| 5 | Evaluation & Baselines | ✅ Complete — full_eval_summary.json written | 100% |
+| 6 | EM Verification + Paper | 🔴 Not started | 0% |
 
 ---
 
