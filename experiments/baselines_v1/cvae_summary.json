@@ -1,0 +1,6 @@
+{
+  "best_val_loss": 0.03637003720573643,
+  "epochs": 100,
+  "latent_dim": 64,
+  "beta": 1.0
+}
