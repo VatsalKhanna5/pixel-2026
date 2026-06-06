@@ -1,0 +1,52 @@
+#!/bin/bash
+#PBS -N pixel_em_verify
+#PBS -q cpuq
+#PBS -l select=1:ncpus=16:mem=32gb
+#PBS -l walltime=08:00:00
+#PBS -j oe
+#PBS -o logs/pbs_em_verify.log
+
+# OpenEMS FDTD verification of generated layouts.
+# Runs AFTER pbs_full_eval_v2.pbs completes.
+#
+# Pilot mode (10 PIXEL + 5 others, 4 workers) to calibrate timing:
+#   qsub -v PILOT=1 scripts/pbs_em_verify.pbs
+#
+# Full run (300 PIXEL + 100 others, 16 workers):
+#   qsub scripts/pbs_em_verify.pbs
+
+cd "$PBS_O_WORKDIR"
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+export PYTHONNOUSERSITE=1
+export CUDA_VISIBLE_DEVICES=""   # CPU-only (OpenEMS is CPU-based)
+
+# Ensure OpenEMS binary is on PATH
+export PATH="/Data1/ec_23104075/.conda/envs/pixel-env/bin:$PATH"
+
+mkdir -p logs experiments/em_verify_v1 data/tmp/em_verify
+
+echo "==== PIXEL-2026 EM Verification ===="
+echo "Job ID: $PBS_JOBID  CPUs=16  $(date)"
+if [ "${PILOT:-0}" = "1" ]; then
+    echo "Mode: PILOT (10+5 layouts)"
+else
+    echo "Mode: FULL (300+100 layouts)"
+fi
+echo "====================================="
+
+if [ "${PILOT:-0}" = "1" ]; then
+    python -m src.evaluation.em_verify \
+        --eval-dir experiments/full_eval_v2 \
+        --out-dir  experiments/em_verify_v1 \
+        --pilot
+else
+    python -m src.evaluation.em_verify \
+        --eval-dir experiments/full_eval_v2 \
+        --out-dir  experiments/em_verify_v1 \
+        --n-pixel  300 \
+        --n-other  100 \
+        --workers  16
+fi
+
+echo "End: $(date)  Exit: $?"
