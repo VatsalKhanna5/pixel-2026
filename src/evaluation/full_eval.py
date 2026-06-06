@@ -214,7 +214,7 @@ def main() -> None:
     idx_all = rng.permutation(total)
     n_tr = int(total * cfg.dataset.train_frac)
     n_va = int(total * cfg.dataset.val_frac)
-    test_idx = idx_all[n_tr + n_va: n_tr + n_va + N]
+    test_idx = np.sort(idx_all[n_tr + n_va: n_tr + n_va + N])
     with h5py.File(h5, "r") as f:
         s11m = f["S11_mag"][test_idx].astype(np.float32)
         s21m = f["S21_mag"][test_idx].astype(np.float32)
