@@ -190,7 +190,7 @@ def load_baselines(cfg, device):
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config",   default="experiments/configs/base_config.yaml")
-    parser.add_argument("--n-test",   type=int, default=200)
+    parser.add_argument("--n-test",   type=int, default=1000)
     parser.add_argument("--cfg-w",    type=float, default=None)
     parser.add_argument("--no-ablations", action="store_true")
     args = parser.parse_args()

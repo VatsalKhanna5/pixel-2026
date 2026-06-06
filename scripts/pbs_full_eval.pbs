@@ -51,7 +51,7 @@ echo "==============================================="
 
 python -m src.evaluation.full_eval \
     --config experiments/configs/base_config.yaml \
-    --n-test 200
+    --n-test 1000
 
 echo "--- Generating paper figures ---"
 python -m src.utils.visualization \
