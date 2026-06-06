@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N pixel_eval_v2
 #PBS -q workq
-#PBS -l select=1:ncpus=16:ngpus=1:mem=64gb
+#PBS -l select=1:ncpus=16:ngpus=1:mem=32gb
 #PBS -l walltime=08:00:00
 #PBS -j oe
 #PBS -o logs/pbs_full_eval_v2.log
