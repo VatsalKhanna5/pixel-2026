@@ -3,15 +3,6 @@ src/utils/visualization.py
 ============================
 Phase 5 — Paper figure generation for PIXEL-2026.
 
-Generates all figures needed for the AAAI-2027 paper:
-  Fig 1: Example generated layouts (PIXEL vs baselines)
-  Fig 2: S-parameter comparison (target vs surrogate-predicted)
-  Fig 3: Evaluation metrics bar chart (all methods)
-  Fig 4: Ablation study bar chart
-  Fig 5: Diversity scatter (Hamming vs S21 MSE)
-
-All figures saved to paper/figures/ as PDF + PNG.
-
 Usage:
     python -m src.utils.visualization \\
         --eval-dir experiments/full_eval_v1 \\
@@ -34,59 +25,70 @@ import matplotlib.ticker as mticker
 
 
 # ---------------------------------------------------------------------------
-# Style — AAAI-2027 / NeurIPS compatible
+# Global style
 # ---------------------------------------------------------------------------
 
-# Short display labels for each method key
-SHORT_LABELS = {
-    "pixel_guided":         "PIXEL\n(guided)",
-    "cfg_only":             "CFG-only",
-    "det_cnn":              "Det-CNN",
-    "cvae":                 "cVAE",
-    "ablation_no_topo":     "−Topo\nguide",
-    "ablation_no_drc":      "−DRC\nguide",
-    "ablation_no_guidance": "No\nguide",
-}
+plt.rcParams.update({
+    "font.family":          "serif",
+    "font.serif":           ["Times New Roman", "DejaVu Serif"],
+    "font.size":            13,
+    "axes.labelsize":       13,
+    "axes.titlesize":       14,
+    "axes.titleweight":     "bold",
+    "axes.titlepad":        10,
+    "axes.linewidth":       0.9,
+    "axes.spines.top":      False,
+    "axes.spines.right":    False,
+    "xtick.labelsize":      12,
+    "ytick.labelsize":      12,
+    "xtick.major.pad":      6,
+    "ytick.major.pad":      4,
+    "legend.fontsize":      11,
+    "legend.framealpha":    0.92,
+    "legend.edgecolor":     "#AAAAAA",
+    "legend.handlelength":  1.4,
+    "grid.linewidth":       0.5,
+    "grid.alpha":           0.4,
+    "figure.dpi":           150,
+    "savefig.dpi":          300,
+    "savefig.bbox":         "tight",
+    "savefig.pad_inches":   0.08,
+})
 
+# Method colours
 COLORS = {
-    "pixel_guided":         "#1565C0",   # strong blue — hero method
-    "cfg_only":             "#7B1FA2",   # purple
-    "det_cnn":              "#C62828",   # red
-    "cvae":                 "#E65100",   # deep orange
-    "ablation_no_topo":     "#546E7A",   # blue-grey
-    "ablation_no_drc":      "#78909C",
+    "pixel_guided":         "#1565C0",
+    "cfg_only":             "#7B1FA2",
+    "det_cnn":              "#C62828",
+    "cvae":                 "#E65100",
+    "ablation_no_topo":     "#37474F",
+    "ablation_no_drc":      "#607D8B",
     "ablation_no_guidance": "#90A4AE",
 }
 
-LAYOUT_CMAP = ListedColormap(["#F5F5F5", "#1565C0"])   # light grey / strong blue
+# Short single-line labels — no \n, used on x-ticks of vertical bar charts
+TICK_LABELS = {
+    "pixel_guided":         "PIXEL",
+    "cfg_only":             "CFG-only",
+    "det_cnn":              "Det-CNN",
+    "cvae":                 "cVAE",
+    "ablation_no_topo":     "w/o Topo",
+    "ablation_no_drc":      "w/o DRC",
+    "ablation_no_guidance": "w/o Guidance",
+}
 
-# Base rcParams — serif font, crisp rendering
-plt.rcParams.update({
-    "font.family":      "serif",
-    "font.serif":       ["Times New Roman", "DejaVu Serif"],
-    "font.size":        9,
-    "axes.labelsize":   9,
-    "axes.titlesize":   10,
-    "axes.titleweight": "bold",
-    "axes.linewidth":   0.8,
-    "axes.spines.top":  False,
-    "axes.spines.right":False,
-    "xtick.labelsize":  8,
-    "ytick.labelsize":  8,
-    "legend.fontsize":  8,
-    "legend.framealpha":0.85,
-    "legend.edgecolor": "#CCCCCC",
-    "grid.linewidth":   0.5,
-    "grid.alpha":       0.35,
-    "figure.dpi":       150,
-    "savefig.dpi":      300,
-    "savefig.bbox":     "tight",
-    "savefig.pad_inches": 0.05,
-})
+# Full labels for legends and horizontal bar charts
+FULL_LABELS = {
+    "pixel_guided":         "PIXEL (guided)",
+    "cfg_only":             "CFG-only",
+    "det_cnn":              "Det-CNN",
+    "cvae":                 "cVAE",
+    "ablation_no_topo":     "w/o Topology guidance",
+    "ablation_no_drc":      "w/o DRC guidance",
+    "ablation_no_guidance": "w/o Any guidance",
+}
 
-# AAAI double-column width ≈ 3.3" per column; full width ≈ 7.0"
-COL1 = 3.3
-COL2 = 6.8
+LAYOUT_CMAP = ListedColormap(["#F5F5F5", "#1565C0"])
 
 
 # ---------------------------------------------------------------------------
@@ -94,39 +96,40 @@ COL2 = 6.8
 # ---------------------------------------------------------------------------
 
 def fig_layout_gallery(
-    layouts_dict: dict,     # {label: (N, 15, 15) ndarray, values 0 or 1}
+    layouts_dict: dict,
     n_show: int = 5,
     out_path: Path = None,
 ) -> None:
     methods = list(layouts_dict.keys())
+    n_rows  = len(methods)
+    cell_w, cell_h = 1.8, 1.8
     fig, axes = plt.subplots(
-        len(methods), n_show,
-        figsize=(1.55 * n_show, 1.5 * len(methods)),
-        gridspec_kw={"hspace": 0.08, "wspace": 0.04},
+        n_rows, n_show,
+        figsize=(cell_w * n_show + 1.5, cell_h * n_rows + 0.6),
+        gridspec_kw={"hspace": 0.12, "wspace": 0.06},
     )
-    if len(methods) == 1:
+    if n_rows == 1:
         axes = axes[None]
 
     rng = np.random.default_rng(0)
     for row, label in enumerate(methods):
-        arr = (layouts_dict[label] == 1).astype(float)
+        arr  = (layouts_dict[label] == 1).astype(float)
         idxs = rng.choice(len(arr), size=n_show, replace=False)
         for col, i in enumerate(idxs):
             ax = axes[row, col]
             ax.imshow(arr[i], cmap=LAYOUT_CMAP, vmin=0, vmax=1,
                       interpolation="nearest")
             ax.set_xticks([]); ax.set_yticks([])
-            for spine in ax.spines.values():
-                spine.set_linewidth(0.4)
-                spine.set_visible(True)
+            for sp in ax.spines.values():
+                sp.set_linewidth(0.4); sp.set_visible(True)
             if col == 0:
-                ax.set_ylabel(label, fontsize=8, rotation=0,
-                              labelpad=55, va="center")
+                ax.set_ylabel(FULL_LABELS.get(label, label),
+                              fontsize=10, rotation=0,
+                              labelpad=80, va="center")
             if row == 0:
-                ax.set_title(f"#{col+1}", fontsize=8)
-            # port markers
-            ax.plot(0,  7, ">", color="#E53935", markersize=4, clip_on=False)
-            ax.plot(14, 7, ">", color="#43A047", markersize=4, clip_on=False)
+                ax.set_title(f"Sample {col+1}", fontsize=10)
+            ax.plot(0,  7, ">", color="#E53935", ms=4, clip_on=False)
+            ax.plot(14, 7, ">", color="#43A047", ms=4, clip_on=False)
 
     _save(fig, out_path, "layout_gallery")
 
@@ -136,103 +139,109 @@ def fig_layout_gallery(
 # ---------------------------------------------------------------------------
 
 def fig_sparams(
-    y_star:      np.ndarray,    # (N, 4, 100) target (normalised)
-    y_pred_dict: dict,          # {label: (N, 4, 100)}
-    freq_ghz:    np.ndarray,    # (100,)
+    y_star:      np.ndarray,
+    y_pred_dict: dict,
+    freq_ghz:    np.ndarray,
     n_show: int = 3,
     out_path: Path = None,
 ) -> None:
-    rng = np.random.default_rng(1)
+    rng  = np.random.default_rng(1)
     idxs = rng.choice(len(y_star), size=n_show, replace=False)
 
-    fig, axes = plt.subplots(
-        1, n_show, figsize=(COL2, 2.4), sharey=True,
-        gridspec_kw={"wspace": 0.12},
-    )
+    fig, axes = plt.subplots(1, n_show, figsize=(5.0 * n_show, 3.8), sharey=True,
+                             gridspec_kw={"wspace": 0.18})
     for col, i in enumerate(idxs):
         ax = axes[col]
-        ax.plot(freq_ghz, y_star[i, 1], "k-", lw=1.8, label="Target", zorder=6)
+        ax.plot(freq_ghz, y_star[i, 1], "k-", lw=2.0, label="Target", zorder=6)
         for key, yp in y_pred_dict.items():
-            ax.plot(freq_ghz, yp[i, 1], "--", color=COLORS.get(key, "#607D8B"),
-                    lw=1.0, label=SHORT_LABELS.get(key, key), alpha=0.9)
-        ax.set_xlabel("Frequency (GHz)", fontsize=8)
+            ax.plot(freq_ghz, yp[i, 1], "--",
+                    color=COLORS.get(key, "#607D8B"), lw=1.3,
+                    label=FULL_LABELS.get(key, key), alpha=0.9)
+        ax.set_xlabel("Frequency (GHz)")
         if col == 0:
-            ax.set_ylabel(r"$|S_{21}|$ (norm.)", fontsize=8)
-        ax.set_title(f"Spec {i+1}", fontsize=9)
+            ax.set_ylabel(r"$|S_{21}|$ (normalised)")
+        ax.set_title(f"Test Spec #{i + 1}")
         ax.grid(True)
         if col == 0:
-            ax.legend(fontsize=7, loc="best", ncol=1)
+            ax.legend(fontsize=10, loc="best")
 
     _save(fig, out_path, "sparams_comparison")
 
 
 # ---------------------------------------------------------------------------
-# Figure 3: Metrics bar chart — main results
+# Figure 3: Metrics bar chart — 2×2 grid, one metric per panel
 # ---------------------------------------------------------------------------
 
 def fig_metrics_bar(results: dict, out_path: Path = None) -> None:
-    # Only non-ablation methods
-    method_keys = [k for k in results if not k.startswith("ablation")]
-    labels = [SHORT_LABELS.get(k, results[k]["label"]) for k in method_keys]
-    colors = [COLORS.get(k, "#607D8B") for k in method_keys]
-    x = np.arange(len(labels))
-    w = 0.6
+    # Non-ablation methods only
+    keys   = [k for k in results if not k.startswith("ablation")]
+    xlbls  = [TICK_LABELS.get(k, k) for k in keys]
+    colors = [COLORS.get(k, "#607D8B") for k in keys]
+    x      = np.arange(len(keys))
+    w      = 0.55
 
-    metrics_spec = [
-        # (panel title,  values,                             y_range,         gate,   y_label,          fmt)
-        ("Connectivity",
-         [results[k]["conn_clean"] for k in method_keys],
-         (0.93, 1.005), 0.95, "Yield (post-proc.)", ".3f"),
+    # (title, values, y_range, gate, y_label, val_fmt)
+    panels = [
+        ("Connectivity Yield",
+         [results[k]["conn_clean"] for k in keys],
+         (0.955, 1.012), 0.95, "Proportion (post-processed)", ".3f"),
+
         ("DRC Pass Rate",
-         [results[k]["drc_clean"]  for k in method_keys],
-         (0.93, 1.005), 0.90, "Pass rate (post-proc.)", ".3f"),
-        ("S21 MSE",
-         [results[k]["s21_mse"]    for k in method_keys],
-         None,           None, "MSE", ".4f"),
+         [results[k]["drc_clean"] for k in keys],
+         (0.940, 1.012), 0.90, "Proportion (post-processed)", ".3f"),
+
+        ("Surrogate S21 MSE  (×10⁻³)",
+         [results[k]["s21_mse"] * 1e3 for k in keys],
+         None, None, "MSE  (×10⁻³)", ".2f"),
+
         ("Layout Diversity",
-         [results[k]["hamming"]    for k in method_keys],
-         None,           None, "Hamming bits", ".1f"),
+         [results[k]["hamming"] for k in keys],
+         None, None, "Mean Hamming distance (bits)", ".1f"),
     ]
 
-    fig, axes = plt.subplots(1, 4, figsize=(COL2, 2.8),
-                             gridspec_kw={"wspace": 0.45})
+    fig, axes = plt.subplots(2, 2, figsize=(13, 10),
+                             layout="constrained")
 
-    for ax, (title, vals, y_range, gate, ylabel, fmt) in zip(axes, metrics_spec):
-        bars = ax.bar(x, vals, w, color=colors, edgecolor="white", lw=0.6,
-                      zorder=3)
+    for idx, (ax, (title, vals, y_range, gate, ylabel, fmt)) in \
+            enumerate(zip(axes.flat, panels)):
+
+        bars = ax.bar(x, vals, w, color=colors,
+                      edgecolor="white", linewidth=0.8, zorder=3)
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, fontsize=7.5, ha="center")
-        ax.set_title(title, pad=4)
-        ax.set_ylabel(ylabel, fontsize=7.5, labelpad=2)
+        ax.set_xticklabels(xlbls, rotation=30, ha="right", fontsize=12)
+        ax.set_title(title)
+        ax.set_ylabel(ylabel, fontsize=12)
         ax.grid(True, axis="y", zorder=0)
 
         if y_range is not None:
             ax.set_ylim(y_range)
-            ax.yaxis.set_major_locator(mticker.MultipleLocator(0.02))
+            # tick every 0.01 for proportion panels
+            ax.yaxis.set_major_locator(mticker.MultipleLocator(0.01))
         else:
-            # auto range with 20% headroom
-            lo = min(vals) * 0.92
-            hi = max(vals) * 1.10
+            lo = min(vals) * 0.94
+            hi = max(vals) * 1.08
             ax.set_ylim(lo, hi)
 
         if gate is not None:
-            ax.axhline(gate, color="#E53935", lw=1.0, ls="--",
-                       label=f"Gate {gate:.2f}", zorder=4)
-            ax.legend(fontsize=7, loc="lower right")
+            ax.axhline(gate, color="#D32F2F", lw=1.4, ls="--",
+                       zorder=4, label=f"Gate = {gate:.2f}")
+            ax.legend(loc="lower right", fontsize=11)
 
-        # value labels — positioned just above each bar
-        pad = (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.012
+        # value annotations — clear of the bar top
+        yspan = ax.get_ylim()[1] - ax.get_ylim()[0]
+        pad   = yspan * 0.015
         for bar, v in zip(bars, vals):
             ax.text(bar.get_x() + bar.get_width() / 2,
                     bar.get_height() + pad,
                     format(v, fmt),
-                    ha="center", va="bottom", fontsize=6.5, color="#212121")
+                    ha="center", va="bottom", fontsize=10.5,
+                    color="#212121", fontweight="bold")
 
     _save(fig, out_path, "metrics_bar")
 
 
 # ---------------------------------------------------------------------------
-# Figure 4: Ablation bar chart
+# Figure 4: Ablation — horizontal grouped bars, one panel per metric
 # ---------------------------------------------------------------------------
 
 def fig_ablation(results: dict, out_path: Path = None) -> None:
@@ -241,55 +250,74 @@ def fig_ablation(results: dict, out_path: Path = None) -> None:
         print("[fig] No ablation results — skipping")
         return
 
-    labels = [SHORT_LABELS.get(k, results[k]["label"]) for k in abl_keys]
-    colors = [COLORS["pixel_guided"]] + [COLORS.get(k, "#607D8B") for k in abl_keys[1:]]
-    x = np.arange(len(labels))
-    w = 0.55
+    # Horizontal bar layout: methods on y-axis (readable), bars extend right
+    ylbls  = [FULL_LABELS.get(k, results[k]["label"]) for k in abl_keys]
+    colors = [COLORS.get(k, "#607D8B") for k in abl_keys]
+    y      = np.arange(len(abl_keys))
+    h      = 0.55
 
-    specs = [
-        ("Connectivity",    [results[k]["conn_clean"] for k in abl_keys],
-         (0.97, 1.005), "Yield"),
-        ("DRC Pass Rate",   [results[k]["drc_clean"]  for k in abl_keys],
-         (0.97, 1.005), "Pass rate"),
-        ("S21 MSE",         [results[k]["s21_mse"]    for k in abl_keys],
-         None, "MSE"),
-        ("Hamming Diversity",[results[k]["hamming"]   for k in abl_keys],
-         None, "Hamming bits"),
+    panels = [
+        ("Connectivity Yield\n(post-processed)",
+         [results[k]["conn_clean"] for k in abl_keys],
+         (0.975, 1.007), "Proportion", ".4f"),
+
+        ("DRC Pass Rate\n(post-processed)",
+         [results[k]["drc_clean"] for k in abl_keys],
+         (0.975, 1.007), "Proportion", ".4f"),
+
+        ("Surrogate S21 MSE  (×10⁻³)",
+         [results[k]["s21_mse"] * 1e3 for k in abl_keys],
+         None, "MSE  (×10⁻³)", ".3f"),
+
+        ("Layout Diversity",
+         [results[k]["hamming"] for k in abl_keys],
+         None, "Mean Hamming bits", ".2f"),
     ]
 
-    fig, axes = plt.subplots(1, 4, figsize=(COL2, 2.8),
-                             gridspec_kw={"wspace": 0.48})
+    fig, axes = plt.subplots(1, 4, figsize=(18, 4.5),
+                             layout="constrained")
 
-    for ax, (title, vals, y_range, ylabel) in zip(axes, specs):
-        bars = ax.bar(x, vals, w, color=colors, edgecolor="white", lw=0.6, zorder=3)
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, fontsize=7.5, ha="center")
-        ax.set_title(title, pad=4)
-        ax.set_ylabel(ylabel, fontsize=7.5, labelpad=2)
-        ax.grid(True, axis="y", zorder=0)
+    for ax, (title, vals, x_range, xlabel, fmt) in zip(axes, panels):
+        bars = ax.barh(y, vals, h, color=colors,
+                       edgecolor="white", linewidth=0.8, zorder=3)
 
-        if y_range is not None:
-            ax.set_ylim(y_range)
-            ax.yaxis.set_major_locator(mticker.MultipleLocator(0.01))
+        ax.set_yticks(y)
+        ax.set_yticklabels(ylbls, fontsize=11.5)
+        ax.set_title(title, fontsize=13)
+        ax.set_xlabel(xlabel, fontsize=12)
+        ax.invert_yaxis()              # PIXEL (guided) at top
+        ax.grid(True, axis="x", zorder=0)
+
+        if x_range is not None:
+            # Extend x limit to give room for bar-end value labels
+            span = x_range[1] - x_range[0]
+            ax.set_xlim(x_range[0], x_range[1] + span * 0.22)
+            # At most 4 ticks, no crowding
+            ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4, prune="both"))
         else:
-            lo = min(vals) * 0.97
-            hi = max(vals) * 1.06
-            ax.set_ylim(lo, hi)
+            span = max(vals) - min(vals)
+            ax.set_xlim(min(vals) - span * 0.3, max(vals) + span * 0.55)
+            ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4, prune="both"))
 
-        fmt = ".4f" if title == "S21 MSE" else (".1f" if "Diversity" in title else ".3f")
-        pad = (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.012
+        # Rotate x-tick labels to prevent overlap
+        ax.tick_params(axis="x", labelrotation=30, labelsize=11)
+        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%.3f"))
+
+        # value labels at bar ends
+        xspan = ax.get_xlim()[1] - ax.get_xlim()[0]
+        pad   = xspan * 0.010
         for bar, v in zip(bars, vals):
-            ax.text(bar.get_x() + bar.get_width() / 2,
-                    bar.get_height() + pad,
+            ax.text(bar.get_width() + pad,
+                    bar.get_y() + bar.get_height() / 2,
                     format(v, fmt),
-                    ha="center", va="bottom", fontsize=6.5, color="#212121")
+                    va="center", ha="left", fontsize=10.5,
+                    color="#212121", fontweight="bold")
 
-    # shared legend at bottom
-    patches = [mpatches.Patch(color=colors[i], label=labels[i])
-               for i in range(len(labels))]
-    fig.legend(handles=patches, loc="lower center", ncol=len(labels),
-               fontsize=7.5, framealpha=0.9,
-               bbox_to_anchor=(0.5, -0.12))
+    # Highlight PIXEL bar with a subtle box in all panels
+    for ax in axes:
+        for bar in ax.patches[:1]:        # first bar = PIXEL
+            bar.set_edgecolor("#1565C0")
+            bar.set_linewidth(2.0)
 
     _save(fig, out_path, "ablation_study")
 
@@ -299,66 +327,101 @@ def fig_ablation(results: dict, out_path: Path = None) -> None:
 # ---------------------------------------------------------------------------
 
 def fig_diversity_scatter(results: dict, out_path: Path = None) -> None:
-    # Pre-compute reasonable annotation offsets to avoid overlap
-    OFFSETS = {
-        "pixel_guided":         ( 6,  3),
-        "cfg_only":             ( 6, -8),
-        "det_cnn":              (-38, -9),
-        "cvae":                 ( 6, -8),
-        "ablation_no_topo":     ( 6,  3),
-        "ablation_no_drc":      ( 6,  3),
-        "ablation_no_guidance": (-60, -9),
-    }
+    """
+    Accuracy vs diversity scatter.
 
-    fig, ax = plt.subplots(figsize=(COL1 + 0.4, 2.8))
+    The diffusion-based methods (PIXEL + CFG + 3 ablations) cluster tightly
+    at nearly identical (S21 MSE, Hamming) coordinates.  Annotating them
+    individually causes collision.  Strategy:
+      - Draw a shaded ellipse bounding the diffusion cluster
+      - Label the cluster with an arrow + text box
+      - Annotate cVAE and Det-CNN individually (they are distinct)
+      - Use a legend for per-method colour identification
+    """
+    import matplotlib.patches as mpatches
+    from matplotlib.patches import FancyArrowPatch, Ellipse
 
-    # Separate ablations so they can be styled differently
-    main_keys = [k for k in results if not k.startswith("ablation")]
-    abl_keys  = [k for k in results if k.startswith("ablation")]
+    fig, ax = plt.subplots(figsize=(9.0, 6.5))
 
-    for key in abl_keys:
+    all_keys  = list(results.keys())
+    diff_keys = [k for k in all_keys
+                 if k not in ("det_cnn", "cvae")]   # diffusion cluster
+    solo_keys = ["cvae", "det_cnn"]
+
+    # ── 1. Draw diffusion cluster shading ────────────────────────────────
+    clust_x = [results[k]["s21_mse"] for k in diff_keys]
+    clust_y = [results[k]["hamming"] for k in diff_keys]
+    cx, cy  = np.mean(clust_x), np.mean(clust_y)
+    rx = (max(clust_x) - min(clust_x)) / 2 + 0.00012
+    ry = (max(clust_y) - min(clust_y)) / 2 + 0.08
+    ellipse = Ellipse((cx, cy), width=2 * rx, height=2 * ry,
+                      facecolor="#BBDEFB", edgecolor="#1565C0",
+                      linewidth=1.2, alpha=0.45, zorder=2)
+    ax.add_patch(ellipse)
+
+    # ── 2. Plot diffusion points ──────────────────────────────────────────
+    for key in diff_keys:
         r = results[key]
-        ax.scatter(r["s21_mse"], r["hamming"], s=55,
-                   color=COLORS.get(key, "#90A4AE"),
-                   marker="s", edgecolors="#FFFFFF", lw=0.5,
-                   alpha=0.75, zorder=4)
-        off = OFFSETS.get(key, (5, 3))
-        ax.annotate(SHORT_LABELS.get(key, r["label"]),
-                    (r["s21_mse"], r["hamming"]),
-                    textcoords="offset points", xytext=off,
-                    fontsize=6.5, color="#546E7A", style="italic")
+        marker = "o" if key == "pixel_guided" else "s"
+        size   = 180 if key == "pixel_guided" else 90
+        ax.scatter(r["s21_mse"], r["hamming"],
+                   s=size, color=COLORS.get(key, "#607D8B"),
+                   marker=marker, edgecolors="#FFFFFF", linewidths=1.2,
+                   zorder=4, label=FULL_LABELS.get(key, key))
 
-    for key in main_keys:
+    # Label the cluster with an arrow from above-left
+    ax.annotate(
+        "Diffusion-based methods\n(PIXEL + CFG + ablations)",
+        xy=(cx, cy + ry),
+        xytext=(cx - 0.0018, cy + ry + 0.55),
+        fontsize=11, color="#1565C0", fontweight="bold",
+        ha="center",
+        arrowprops=dict(arrowstyle="-|>", color="#1565C0",
+                        lw=1.2, connectionstyle="arc3,rad=-0.1"),
+        bbox=dict(boxstyle="round,pad=0.3", fc="#E3F2FD",
+                  ec="#1565C0", lw=0.8, alpha=0.9),
+        zorder=6,
+    )
+
+    # ── 3. Plot & annotate standalone methods ─────────────────────────────
+    for key in solo_keys:
         r = results[key]
-        ax.scatter(r["s21_mse"], r["hamming"], s=90,
-                   color=COLORS.get(key, "#607D8B"),
-                   marker="o", edgecolors="#FFFFFF", lw=0.8,
-                   zorder=5)
-        off = OFFSETS.get(key, (5, 3))
-        ax.annotate(SHORT_LABELS.get(key, r["label"]).replace("\n", " "),
-                    (r["s21_mse"], r["hamming"]),
-                    textcoords="offset points", xytext=off,
-                    fontsize=7.5, fontweight="bold",
-                    color=COLORS.get(key, "#212121"))
+        ax.scatter(r["s21_mse"], r["hamming"],
+                   s=200, color=COLORS.get(key, "#607D8B"),
+                   marker="o", edgecolors="#FFFFFF", linewidths=1.5,
+                   zorder=5, label=FULL_LABELS.get(key, key))
+        x_off = -110 if key == "det_cnn" else 10
+        y_off = 8
+        ax.annotate(
+            FULL_LABELS.get(key, key),
+            xy=(r["s21_mse"], r["hamming"]),
+            xytext=(x_off, y_off), textcoords="offset points",
+            fontsize=12, fontweight="bold",
+            color=COLORS.get(key, "#212121"),
+            arrowprops=dict(arrowstyle="-", color=COLORS.get(key, "#607D8B"),
+                            lw=0.8),
+            zorder=6,
+        )
 
-    ax.set_xlabel("Surrogate $S_{21}$ MSE  ($\\downarrow$ better)", fontsize=9)
-    ax.set_ylabel("Hamming Diversity  ($\\uparrow$ better)", fontsize=9)
+    # ── 4. Axes, grid, decorations ────────────────────────────────────────
+    ax.set_xlabel("Surrogate $S_{21}$ MSE   ($\\downarrow$ better)", fontsize=13)
+    ax.set_ylabel("Mean Hamming Diversity  ($\\uparrow$ better)", fontsize=13)
     ax.grid(True)
 
-    # diversity gate line
-    ax.axhline(30, color="#B0BEC5", ls=":", lw=1.0, label="Diversity target (30 bits)")
+    # Diversity goal line
+    ax.axhline(30, color="#B0BEC5", ls=":", lw=1.5,
+               label="Diversity target (30 bits)")
 
-    # ideal corner annotation
-    ax.annotate("Ideal", xy=(ax.get_xlim()[0], 30),
-                xytext=(3, 3), textcoords="offset points",
-                fontsize=7, color="#B0BEC5")
+    # Axis limits with padding for annotations
+    all_x = [results[k]["s21_mse"] for k in all_keys]
+    all_y = [results[k]["hamming"] for k in all_keys]
+    ax.set_xlim(min(all_x) - 0.0004, max(all_x) + 0.0018)
+    ax.set_ylim(min(all_y) - 0.4, 30 + 0.8)
 
-    # legend for marker shapes
-    circ  = mpatches.Patch(color="#607D8B", label="Main methods (●)")
-    sq    = mpatches.Patch(color="#90A4AE", label="Ablations (■)")
-    ax.legend(handles=[circ, sq], fontsize=7.5, loc="lower left")
+    # ── 5. Legend (2-column for space) ───────────────────────────────────
+    ax.legend(fontsize=10, loc="lower right", ncol=2, framealpha=0.92,
+              handletextpad=0.4, columnspacing=0.8)
 
-    plt.tight_layout()
     _save(fig, out_path, "diversity_scatter")
 
 
