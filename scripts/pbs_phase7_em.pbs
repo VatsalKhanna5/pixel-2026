@@ -1,0 +1,45 @@
+#!/bin/bash
+#PBS -N pixel_p7_em
+#PBS -q cpuq
+#PBS -l select=1:ncpus=16:mem=32gb
+#PBS -l walltime=12:00:00
+#PBS -j oe
+#PBS -o logs/pbs_phase7_em.log
+
+# Phase 7 EM verification.
+# Runs AFTER pbs_phase7_generate.pbs completes.
+#
+# Usage:
+#   qsub scripts/pbs_phase7_em.pbs
+
+cd "$PBS_O_WORKDIR"
+source /apps/compilers/anaconda3/etc/profile.d/conda.sh
+conda activate pixel-env
+export PYTHONNOUSERSITE=1
+export CUDA_VISIBLE_DEVICES=""   # CPU-only (OpenEMS is CPU-based)
+
+# Ensure OpenEMS binary is on PATH
+export PATH="/Data1/ec_23104075/.conda/envs/pixel-env/bin:$PATH"
+
+mkdir -p logs experiments/phase7/em experiments/phase7/stats data/tmp/phase7_em
+
+echo "==== PIXEL Phase 7 — EM Verification ===="
+echo "Job ID: $PBS_JOBID  CPUs=16  $(date)"
+echo "=========================================="
+
+python -m src.evaluation.phase7_em \
+    --gen-dir experiments/phase7/gen \
+    --out-dir experiments/phase7/em  \
+    --workers 8
+
+echo "Phase 7 EM done: $(date)  Exit: $?"
+echo ""
+
+# Run stats immediately after EM completes
+echo "==== PIXEL Phase 7 — Statistical Tests ===="
+python -m src.evaluation.stats_tests \
+    --em-dir  experiments/phase7/em \
+    --phase6  experiments/em_verify_v1/em_verify_summary.json \
+    --out-dir experiments/phase7/stats
+
+echo "Stats done: $(date)  Exit: $?"
