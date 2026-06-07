@@ -130,7 +130,7 @@ def _build_and_run(
     f_eval is the frequency array [Hz] used for CalcPort post-processing.
     """
     _ensure_openems()
-    sim_dir = str(sim_dir)
+    sim_dir = os.path.abspath(str(sim_dir))   # absolute so chdir+Run are consistent
     os.makedirs(sim_dir, exist_ok=True)
 
     sub      = SUBSTRATES[substrate_id]
