@@ -252,9 +252,15 @@ def main() -> None:
         ]
 
         # Run in parallel
+        # Use 'spawn' start method: each worker starts a clean Python process
+        # without inheriting the parent's PyTorch state / virtual memory.
+        # Fork + PyTorch causes PBS OOM kills due to inflated VSZ per worker.
+        import gc
         import multiprocessing as mp
+        gc.collect()
+        mp_ctx = mp.get_context('spawn')
         t0 = time.time()
-        with mp.Pool(processes=args.workers) as pool:
+        with mp_ctx.Pool(processes=args.workers) as pool:
             sim_results = pool.map(_simulate_one, sim_args)
         elapsed_total = time.time() - t0
 
