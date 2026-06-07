@@ -146,10 +146,10 @@ def surrogate_s21_mse_batch(
         for i in range(0, len(layouts_t), BATCH):
             lb = layouts_t[i:i+BATCH].to(device)
             yb = y_star_t[i:i+BATCH].to(device)
-            # layout_oh: (B, K, H, W) one-hot; here binary so channel 1 = conductor
-            layout_oh = torch.zeros(len(lb), 3, 15, 15, device=device)
-            layout_oh.scatter_(1, lb.unsqueeze(1), 1.0)
-            inp = torch.cat([layout_oh, port_map.unsqueeze(0).expand(len(lb), -1, -1, -1)], dim=1)
+            # Surrogate expects (B, 2, 15, 15): Ch0=binary layout float, Ch1=port_map
+            # Layout values: 0=empty, 1=conductor (no MASK tokens at inference)
+            layout_bin = (lb == 1).float().unsqueeze(1)   # (B, 1, 15, 15)
+            inp = torch.cat([layout_bin, port_map.unsqueeze(0).expand(len(lb), -1, -1, -1)], dim=1)
             mean_pred, _ = surr_ens(inp)     # (B, 4, 100)
             s21_pred = mean_pred[:, 1, :]    # magnitude, channel 1
             s21_tgt  = yb[:, 1, :]

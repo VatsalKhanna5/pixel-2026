@@ -301,6 +301,7 @@ def _build_and_run(
     # the (now gone) sim_dir in the finally block of simulate().
     _saved_cwd = os.getcwd()
     try:
+        os.chdir(sim_dir)   # OpenEMS asserts os.getcwd() == sim_dir internally
         FDTD.Run(sim_dir, cleanup=True, numThreads=1)
     except Exception as exc:
         logger.error(f"[openems_wrapper] FDTD.Run() raised: {exc}")
