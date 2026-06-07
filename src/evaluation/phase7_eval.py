@@ -41,9 +41,16 @@ from src.training.train_denoiser import generate_samples
 from src.training.train_surrogate import _build_port_map
 from src.utils.config import load_config
 
-SEEDS_K5  = [0, 42, 123, 456, 789]
-SEEDS_K20 = [0, 42, 123, 456, 789, 1000, 1001, 1002, 1003, 1004,
-             2000, 2001, 2002, 2003, 2004, 3000, 3001, 3002, 3003, 3004]
+# Per-method seed offsets prevent identical RNG state when same seed is used.
+# PIXEL and CFG-only share the same denoiser + same multinomial call site —
+# without an offset, torch.manual_seed(s) gives byte-identical layouts because
+# the guidance gradient (~1e-5 logit shift) is too small to flip any multinomial
+# sample. Offset of 200 000 keeps seeds reproducible and well-separated.
+SEEDS_K5          = [0, 42, 123, 456, 789]
+SEEDS_K5_CFG      = [s + 200_000 for s in SEEDS_K5]   # CFG-only offset
+SEEDS_K20         = [0, 42, 123, 456, 789, 1000, 1001, 1002, 1003, 1004,
+                     2000, 2001, 2002, 2003, 2004, 3000, 3001, 3002, 3003, 3004]
+SEEDS_K20_CFG     = [s + 200_000 for s in SEEDS_K20]
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +119,11 @@ def gen_pixel_k(y_star, seeds, den, enc, diff, surr_ens, disc, port_map,
 
 def gen_cfg_k(y_star, seeds, den, enc, diff, port_map,
               device, dcfg, cfg_w, chunk=256) -> torch.Tensor:
-    """Generate K CFG-only layouts per spec. Returns (N, K, 15, 15)."""
+    """Generate K CFG-only layouts per spec. Returns (N, K, 15, 15).
+
+    Seeds should differ from PIXEL's seeds (use SEEDS_K5_CFG) so the two
+    methods explore independent random trajectories.
+    """
     all_k = []
     for k, seed in enumerate(seeds):
         torch.manual_seed(seed)
@@ -268,8 +279,10 @@ def main() -> None:
     port_map  = _build_port_map(cfg)
 
     # ── Best-of-K generation ──────────────────────────────────────────────
-    seeds_bk  = SEEDS_K5[:args.k_best]
-    seeds_div = SEEDS_K20[:args.k_div]
+    seeds_bk      = SEEDS_K5[:args.k_best]
+    seeds_bk_cfg  = SEEDS_K5_CFG[:args.k_best]     # offset set for CFG-only
+    seeds_div     = SEEDS_K20[:args.k_div]
+    seeds_div_cfg = SEEDS_K20_CFG[:args.k_div]
 
     for key, path_name, gen_fn in [
         ("pixel",   f"layouts_pixel_k{args.k_best}.npy",   None),
@@ -288,7 +301,7 @@ def main() -> None:
                                surr_ens, disc, port_map, device, dcfg, gcfg, cfg_w,
                                chunk=args.chunk)
         elif key == "cfg":
-            lays = gen_cfg_k(y_star_bk, seeds_bk, den, enc, diff,
+            lays = gen_cfg_k(y_star_bk, seeds_bk_cfg, den, enc, diff,
                              port_map, device, dcfg, cfg_w, chunk=args.chunk)
         elif key == "cvae" and "cvae" in baselines:
             lays = gen_cvae_k(y_star_bk, args.k_best,
