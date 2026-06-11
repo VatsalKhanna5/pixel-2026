@@ -1,0 +1,44 @@
+========================================================================
+PHASE 7 STATISTICAL REPORT  (paired, N=100 specs, K=5)
+========================================================================
+Bonferroni-corrected α = 0.0167  (3 comparisons: vs CFG, Det-CNN, cVAE)
+
+PIXEL vs CFG-only  (N=100)
+  Wilcoxon signed-rank: W=375  p=3.1902e-01  n.s.
+  Effect size r=+0.002  (small)  power=0.02
+  Means: PIXEL=0.000562  CFG-only=0.000308  ratio=0.55×
+  Coverage @ 0.001:
+    PIXEL  96.0%  [92.0–99.0%]
+    CFG-only   93.0%  [88.0–98.0%]
+    McNemar b=4 c=1 p=1.8555e-01
+
+PIXEL vs Det-CNN  (N=100)
+  Wilcoxon signed-rank: W=51  p=8.4987e-10  *
+  Effect size r=+0.244  (small)  power=0.62
+  Means: PIXEL=0.000562  Det-CNN=0.003998  ratio=7.12×
+  Coverage @ 0.001:
+    PIXEL  96.0%  [92.0–99.0%]
+    Det-CNN    65.0%  [56.0–74.0%]
+    McNemar b=32 c=1 p=8.8343e-08
+
+PIXEL vs cVAE  (N=100)
+  Wilcoxon signed-rank: W=245  p=2.9518e-03  *
+  Effect size r=+0.046  (small)  power=0.05
+  Means: PIXEL=0.000562  cVAE=0.001473  ratio=2.62×
+  Coverage @ 0.001:
+    PIXEL  96.0%  [92.0–99.0%]
+    cVAE       86.0%  [79.0–92.0%]
+    McNemar b=11 c=1 p=4.6874e-03
+
+WITHIN-SPEC DIVERSITY (K=20 per spec, N=20 hardest specs)
+  PIXEL mean intra-spec Hamming: 4.64 bits
+  cVAE  mean intra-spec Hamming: 1.42 bits
+  Wilcoxon (cVAE<PIXEL Hamming): p=1.1661e-04
+  PIXEL higher diversity: True
+
+PHASE 6 CONTEXT (best-of-1, for comparison)
+  pixel_guided         cov@0.001=88.3%  cov@0.010=94.0%  cond_mean=0.000887
+  cfg_only             cov@0.001=84.0%  cov@0.010=95.0%  cond_mean=0.001500
+  det_cnn              cov@0.001=69.0%  cov@0.010=86.0%  cond_mean=0.003003
+  cvae                 cov@0.001=84.0%  cov@0.010=94.0%  cond_mean=0.001226
+========================================================================
