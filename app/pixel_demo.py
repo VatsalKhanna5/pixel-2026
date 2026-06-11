@@ -293,7 +293,7 @@ def generate(
 def run_em(layout: np.ndarray, substrate_id: int) -> dict | None:
     try:
         from src.dataset.openems_wrapper import simulate
-        return simulate(layout, substrate_id=substrate_id)
+        return simulate(layout, meta={"type": 0}, substrate_id=substrate_id)
     except Exception as e:
         st.error(f"OpenEMS failed: {e}")
         return None
