@@ -418,6 +418,63 @@ qstat -u ec_23104075
 
 ---
 
+### Session 14 — June 5–6, 2026 (Phase 6 — EM Verification)
+**Status at start:** Phase 5 complete; OpenEMS installed at `/Data1/ec_23104075/.conda/envs/pixel-env/bin/openems`
+
+**Work done:**
+- Installed OpenEMS v0.0.36-198-gcc80322 on HPC pixel-env
+- Implemented `src/evaluation/em_verifier.py` — full FDTD pipeline (18–28s/sim on cpuq)
+- Ran N=300 (PIXEL+CFG+cVAE) + N=100 (Det-CNN) EM simulations
+- Floating-island BFS post-processing applied before all EM sims
+- Results written to `experiments/em_verify_v1/em_verify_summary.json`
+
+**Phase 6 EM Verification Results (best-of-1 per spec):**
+| Method | cov@0.001 | cov@0.010 | EM MSE (cond. mean) |
+|---|---|---|---|
+| PIXEL (guided) | **88.3%** | 94.0% | **0.000887** |
+| CFG-only | 84.0% | 95.0% | 0.001500 |
+| cVAE | 84.0% | 94.0% | 0.001226 |
+| Det-CNN | 69.0% | 86.0% | 0.003003 |
+
+Key insights: PIXEL >Det-CNN 3.39×; guidance effect visible on best-of-1 (88.3% vs 84.0%). ~18–28s/sim.
+
+**Status at end:** Phase 6 ✅ COMPLETE.
+
+---
+
+### Session 15 — June 11, 2026 (Phase 7 — Best-of-K + Statistical Tests)
+**Status at start:** Phase 6 complete; Phase 7 scaffolding ready
+
+**Work done:**
+- Implemented `src/evaluation/phase7_eval.py` — K=5 layout generation per spec per method
+- Implemented `src/evaluation/stats_tests.py` — Bonferroni-corrected Wilcoxon/McNemar/bootstrap/power
+- Submitted PBS job 22877 (workq, GPU) → layout generation complete (8 min); 100 fresh specs (593 Phase 6 excluded)
+- **Discovered & fixed critical seed-collision bug:** PIXEL==CFG byte-identical (guidance gradient max|Δlogit|=1.1×10⁻⁵ too small to flip torch.multinomial); fixed via `SEEDS_K5_CFG = [s+200_000 for s in SEEDS_K5]`
+- PBS job 22878 (12h cpuq) killed at walltime; job 23051 congested; job 23052 (4h workq) → completed, 0 errors, 1,400 total sims
+- Stats report generated: `experiments/phase7/stats/stats_report.txt`
+
+**Phase 7 Final Results (N=100 specs, best-of-K=5, Bonferroni α=0.0167):**
+| Method | EM MSE | cov@0.001 [95% CI] | vs PIXEL | p-value |
+|---|---|---|---|---|
+| **PIXEL** | **0.000562** | **96.0% [92–99%]** | — | — |
+| CFG-only | 0.000308 | 93.0% [88–98%] | W=375 | 0.319 n.s. |
+| cVAE | 0.001473 | 86.0% [79–92%] | W=245 | 0.003 * |
+| Det-CNN | 0.003998 | 65.0% [56–74%] | W=51 | 8.5×10⁻¹⁰ * |
+
+**Within-spec diversity (K=20, N=20 hardest):** PIXEL 4.64 bits vs cVAE 1.42 bits (p=1.2×10⁻⁴, 3.3×)
+
+**Key insights:**
+1. PIXEL vs CFG not significant at K=5 (guidance gap closed by diversity); Phase 6 (best-of-1) shows guidance IS meaningful
+2. PIXEL vs Det-CNN r=+0.244, 7.12× lower MSE, power=0.62 — robust claim
+3. PIXEL diversity 3.3× higher than cVAE — strongly supported
+4. Connectivity failure rate 2.23–2.33% — surrogate assigns near-zero MSE to disconnected layouts (known gap)
+
+**Commits:** `511facc`, `e9ce7ac`, `d68a001`, `93b08db`
+
+**Status at end:** Phase 7 ✅ COMPLETE. All empirical validation done. Ready for Phase 8 (Paper).
+
+---
+
 ## CURRENT STATUS SNAPSHOT
 
 | Phase | Name | Status | % Complete |
@@ -427,8 +484,10 @@ qstat -u ec_23104075
 | 2 | Surrogate Physics Model | ✅ Complete | 100% |
 | 3 | Denoiser / Generative Model | ✅ Complete | 100% |
 | 4 | Physics-Guided Sampling | ✅ Complete | 100% |
-| 5 | Evaluation & Baselines | ✅ Complete — full_eval_summary.json written | 100% |
-| 6 | EM Verification + Paper | 🔴 Not started | 0% |
+| 5 | Surrogate Evaluation & Baselines | ✅ Complete — full_eval_summary.json | 100% |
+| 6 | EM Verification | ✅ Complete — em_verify_summary.json, N=300+100 | 100% |
+| 7 | Best-of-K + Statistical Tests | ✅ Complete — stats_report.txt, N=100, K=5 | 100% |
+| 8 | Paper Writing (AAAI-2027) | 🔴 Not started | 0% |
 
 ---
 

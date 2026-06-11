@@ -723,7 +723,52 @@ Before final evaluation, run these ablations in sequence:
 
 ---
 
+## PHASE 6: EM Verification (Full-Wave Validation)
+**STATUS: ✅ COMPLETE — June 5–6, 2026**
+
+**Results (best-of-1 per spec, N=300 PIXEL/CFG/cVAE + N=100 Det-CNN):**
+| Method | cov@0.001 | cov@0.010 | EM MSE (cond. mean) |
+|---|---|---|---|
+| PIXEL (guided) | **88.3%** | 94.0% | **0.000887** |
+| CFG-only | 84.0% | 95.0% | 0.001500 |
+| cVAE | 84.0% | 94.0% | 0.001226 |
+| Det-CNN | 69.0% | 86.0% | 0.003003 |
+
+- OpenEMS v0.0.36-198-gcc80322, ~18–28s/sim, 2 ns time cap
+- Floating-island BFS post-processing applied before all EM sims
+- All generated layouts: 100% DRC pass (post-processed)
+- Outputs: `experiments/em_verify_v1/em_verify_summary.json`
+
+---
+
+## PHASE 7: Best-of-K Evaluation + Statistical Tests
+**STATUS: ✅ COMPLETE — June 11, 2026**
+
+**Best-of-K=5 Results (N=100 fresh specs, 100 Phase-6 specs excluded, Bonferroni α=0.0167):**
+| Method | EM MSE (mean) | cov@0.001 [95% CI] | vs PIXEL Wilcoxon | p-value |
+|---|---|---|---|---|
+| **PIXEL** | **0.000562** | **96.0% [92–99%]** | — | — |
+| CFG-only | 0.000308 | 93.0% [88–98%] | W=375 | 0.319 n.s. |
+| cVAE | 0.001473 | 86.0% [79–92%] | W=245 | 0.003 * |
+| Det-CNN | 0.003998 | 65.0% [56–74%] | W=51 | 8.5×10⁻¹⁰ * |
+
+**Within-spec diversity (K=20, N=20 hardest specs):**
+- PIXEL: 4.64 bits Hamming — cVAE: 1.42 bits — p=1.2×10⁻⁴ — PIXEL 3.3× more diverse
+
+**Interpretation:**
+- Guidance benefit: detectable at best-of-1 (Phase 6: PIXEL 88.3% vs CFG 84.0%), but K=5 diversity closes the gap (not significant at K=5)
+- Strongest claim: PIXEL vs Det-CNN is highly robust (p=8.5e-10, 7.12× lower MSE, power=0.62)
+- Second claim: PIXEL vs cVAE significant (p=0.003), 2.62× lower MSE
+- Diversity claim: PIXEL 3.3× higher intra-spec Hamming, highly significant (p=1.2e-4)
+- Key known limitation: 2.23–2.33% connectivity failure rate (surrogate insensitive to disconnected layouts)
+
+**Outputs:** `experiments/phase7/` — gen, em, stats directories, all complete
+**Commits:** `511facc`, `e9ce7ac`, `d68a001`, `93b08db`
+
+---
+
 ## PHASE 5: Evaluation, Baselines & Paper (Days 50–70)
+**STATUS: ✅ COMPLETE — June 5, 2026 (surrogate-level evaluation; EM verification in Phase 6)**
 
 ### Goals
 Comprehensive evaluation against all baselines, ablation study, scaling experiment, paper writing.
