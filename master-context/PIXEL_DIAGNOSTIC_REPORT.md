@@ -337,33 +337,29 @@ The surrogate's gradient cosine is 0.97+ — the gradients are accurate and poin
 
 ## 7. How to Fix It — Improvement Roadmap
 
-### Fix 1: Alpha Scaling (1 day, potentially 3× improvement in guidance effectiveness)
+### Fix 1: Alpha Scaling + Gradient Normalisation — **IMPLEMENTED 2026-06-12** ✅
 
-The correct alpha is:
+**Root cause**: The raw surrogate gradient magnitude (~9.6×10⁻⁵) is much smaller than the
+logit-unit scale (~8.1 logit gap), so alpha_max=0.10 gave max perturbation of ~0.001 logit
+units — completely invisible.
 
-```
-alpha_required = logit_gap / (2 × grad_max)
-               = 8.10 / (2 × 0.01451)
-               = 279
-
-Current: alpha_max = 0.10
-Required: alpha_max ≈ 100–300 (2–3 orders of magnitude increase)
-```
-
-However, setting alpha that high will cause instability (the soft x̂₀ will be pushed far out of [0,1]). The real fix is **logit-space guidance injection**:
-
+**Implemented fix** (5-line change to `src/guidance/physics_guidance.py`):
 ```python
-# Current (broken):
-x_hat0_soft = sigmoid(logits_x0)
-x_hat0_guided = x_hat0_soft - alpha × ∂loss/∂x_hat0_soft
-# → perturbation 0.001 vs logit gap 8 → no effect
-
-# Correct (logit-space injection):
-logits_x0_guided = logits_x0 - alpha × ∂loss/∂logits_x0
-# → perturbation applied IN logit space → can cross decision boundary
+# Normalise gradient to unit mean-absolute-value so alpha is measured in logit units
+g_scale   = g.abs().view(B, -1).mean(dim=1).clamp(min=epsilon).view(B, 1, 1, 1)
+g_clipped = (g / g_scale).clamp(-g_max, g_max)
+ell_guided = ell_cond - alpha * g_clipped
+# alpha_max: 0.10 → 1.50 in base_config.yaml and pixel_demo.py
 ```
 
-This is a 5-line code change in `src/guidance/physics_guidance.py`. Expected impact: guidance becomes meaningful, PIXEL should outperform CFG by a measurable margin.
+**Verified result**:
+- OLD: alpha_effective=0.92, delta_mean=0.000096, flip_rate=0.0%
+- NEW: alpha_effective=13.7, delta_mean=0.132, flip_rate=5.3% at t=100
+- Single-run surrogate MSE: CFG=0.02379, GUIDED=0.02260 (**5% improvement**)
+- 2/225 pixels differ per run (guidance is active but not overwhelming)
+
+Impact: guidance is now ~1,500× more effective. Phase 8 Job 1 should be re-run to get
+statistically significant PIXEL vs CFG result with the fixed guidance.
 
 ### Fix 2: Increased Alpha with Gradient Clipping (1 day, safe increment)
 

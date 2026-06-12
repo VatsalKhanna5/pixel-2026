@@ -160,7 +160,9 @@ discriminator:
 # Physics-Guided Sampling
 # -----------------------------------------------------------
 guidance:
-  alpha_max: 0.10             # maximum guidance step size
+  alpha_max: 1.50             # guidance step size in logit units (post gradient normalisation)
+                              # 1.5 → effective per-pixel logit perturbation up to 15 units
+                              # (clamped at alpha_max×10=15); flips marginal pixels (gap<15)
   t_threshold: 400            # guidance activates when t < t_threshold (= 0.4T)
   lambda_topo: 1.00           # connectivity guidance weight
   lambda_mfg: 0.50            # DRC / manufacturability guidance weight

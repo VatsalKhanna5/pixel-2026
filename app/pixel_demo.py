@@ -274,7 +274,7 @@ def generate(
     models: dict,
     *,
     T: int = 1000,
-    alpha_max: float = 0.10,
+    alpha_max: float = 1.50,
     cfg_w: float = 2.0,
     use_guidance: bool = True,
     seed: int = 42,
@@ -789,7 +789,7 @@ def main():
                 lay = generate(
                     y, models,
                     T=t_steps,
-                    alpha_max=0.10 if use_guidance else 0.0,
+                    alpha_max=1.50 if use_guidance else 0.0,
                     cfg_w=eff_cfg_w,
                     use_guidance=use_guidance,
                     seed=k * 7919 + 42,

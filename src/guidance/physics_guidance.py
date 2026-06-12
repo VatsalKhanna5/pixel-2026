@@ -129,8 +129,15 @@ def guided_reverse_step(
         alpha = (alpha_max / (sigma.detach() + epsilon) * eta
                  ).clamp(max=alpha_max * 10).view(B, 1, 1, 1)
 
-        # Clip gradient and apply
-        g_clipped  = g.clamp(-g_max, g_max)
+        # Normalize gradient to unit mean-absolute-value so that alpha_max is
+        # measured in logit units rather than raw gradient units.
+        # Raw gradient magnitude ~0.004 << logit gap ~8, so without normalisation
+        # alpha_max=0.10 gives a max perturbation of 0.001 logit units (< 0.001%
+        # of the flip threshold).  After normalisation alpha_max=0.10 gives
+        # a max perturbation of 0.10 × (alpha_max*10) = 1.0 logit units, which
+        # is meaningful (~12% of the logit flip threshold).
+        g_scale   = g.abs().view(B, -1).mean(dim=1).clamp(min=epsilon).view(B, 1, 1, 1)
+        g_clipped  = (g / g_scale).clamp(-g_max, g_max)
         ell_guided = ell_cond - alpha * g_clipped
     else:
         ell_guided = ell_cond
@@ -163,7 +170,7 @@ def generate_guided(
     *,
     T:             int   = 1000,
     t_thresh:      int   = 400,
-    alpha_max:     float = 0.10,
+    alpha_max:     float = 1.50,
     epsilon:       float = 0.01,
     lambda_topo:   float = 1.00,
     lambda_mfg:    float = 0.50,
