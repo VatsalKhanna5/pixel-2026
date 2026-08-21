@@ -1,7 +1,6 @@
 # Physics-Constrained Probabilistic Topology Synthesis for Inverse Electromagnetic RF/IC Design
 
 ## Master Context Document — Version 2 (Comprehensive Analysis & Research Blueprint)
-### Target Venue: AAAI-2027 (and concurrent IEEE TMTT / IEEE TNNLS journal submission)
 
 ---
 
@@ -29,7 +28,7 @@
 16. Full Training Objective  
 17. Vulnerability Analysis and Mitigations  
 18. Evaluation Protocol  
-19. AAAI-2027 Positioning Strategy  
+19. (confidential) 
 20. Related Work and Differentiation  
 21. Implementation Roadmap  
 22. Compute Budget and Resource Analysis  
@@ -1078,51 +1077,7 @@ All metrics computed after **full-wave EM verification** (OpenEMS simulation of 
 | Single surrogate | Replace ensemble with single model | Effect of uncertainty estimation |
 
 ---
-
-# 19. AAAI-2027 POSITIONING STRATEGY
-
-## 19.1 AAAI Fit Analysis
-
-AAAI-2027 is appropriate for this work because:
-
-1. **AI Methodology:** The paper makes a genuine contribution to **discrete diffusion for combinatorial inverse problems** — independent of the EM application, this is a methodological advance.
-
-2. **Scientific AI:** AAAI has a strong track record of publishing physics-informed AI (materials discovery, drug design, protein folding). EM inverse design fits this paradigm.
-
-3. **Novelty:** The combination — discrete diffusion + uncertainty-weighted physics guidance + differentiable topological constraints — does not exist in current literature.
-
-4. **Completeness:** The paper can be self-contained with all components: theory, method, dataset, evaluation.
-
-## 19.2 Paper Framing Recommendation
-
-**Primary framing (AAAI AI):** 
-> "We present PIXEL: a physics-guided discrete diffusion framework for constrained inverse design of electromagnetic structures. PIXEL learns a probabilistic prior over manufacturable RF topologies and guides reverse sampling with differentiable EM physics via an uncertainty-weighted ensemble surrogate."
-
-**Avoid:** Framing as an EDA/circuit design paper (wrong venue). AAAI reviewers are AI researchers; the EM design is the application, not the contribution.
-
-**Message architecture:**
-1. Problem motivation: Inverse EM design is ill-posed → probabilistic formulation required
-2. Method: D3PM + physics guidance + topology constraints
-3. Technical novelty: Corrected discrete CFG + uncertainty-weighted guidance + differentiable topology
-4. Empirical: Outperforms deterministic baselines across all metrics
-5. Impact: Enables direct fabrication of AI-designed RF structures
-
-## 19.3 Potential Reviewer Concerns and Responses
-
-| Concern | Response |
-|---|---|
-| "15×15 is too low resolution" | Co-design table (Sec 3.6) shows 15×15 covers 2–18 GHz on 5–10 mm substrates; include 32×32 scaling experiment |
-| "Why not just use EM optimizer?" | Show EM optimizer requires 1000× more forward evaluations; present efficiency comparison |
-| "Is the surrogate accurate enough?" | Report gradient fidelity validation (Section 9.4) + ensemble uncertainty calibration |
-| "Dataset is procedurally generated — biased?" | Include evaluation on held-out structure types; show generalization beyond training primitives |
-| "Why AAAI and not IEEE TMT?" | AI methodology is primary contribution; submit IEEE TMT in parallel for the engineering community |
-
-## 19.4 Concurrent Submissions Strategy
-
-- **AAAI-2027:** AI methodology focus (discrete diffusion for constrained inverse design)
-- **IEEE Transactions on Microwave Theory and Techniques:** Engineering focus (RF/IC design automation)
-- **ICLR-2027 Workshop:** Physics-informed ML workshop (if AAAI does not pan out)
-
+(Confidential - Not pushed)
 ---
 
 # 20. RELATED WORK AND DIFFERENTIATION
