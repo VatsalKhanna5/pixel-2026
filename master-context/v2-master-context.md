@@ -4,7 +4,7 @@
 
 ---
 
-> **Document Purpose**: This is the authoritative master research context for the PIXEL-2026 project. It covers the full problem from first principles — physics, mathematics, AI methodology, engineering constraints, novelty analysis, vulnerability assessment, and AAAI positioning. Every section has been validated, corrected, and enriched from the v1 brainstorm.
+> **Document Purpose**: This is the authoritative master research context for the PIXEL-2026 project. It covers the full problem from first principles — physics, mathematics, AI methodology, engineering constraints, novelty analysis, vulnerability assessment, and positioning. Every section has been validated, corrected, and enriched from the v1 brainstorm.
 
 ---
 
