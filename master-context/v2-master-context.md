@@ -48,7 +48,7 @@ The framework is built around three interlocking scientific contributions:
 
 3. **Differentiable connectivity and manufacturability constraints** embedded into the generation process rather than applied as post-hoc corrections.
 
-**Validated scientific positioning:** The work is genuinely novel. The combination of discrete diffusion + physics surrogate guidance + topological differentiable constraints for inverse EM design does not exist in current literature. The AAAI-2027 target is achievable if the mathematical formulation is made rigorous (this document corrects several v1 formulation errors), and if the evaluation is comprehensive.
+**Validated scientific positioning:** The work is genuinely novel. The combination of discrete diffusion + physics surrogate guidance + topological differentiable constraints for inverse EM design does not exist in current literature. 
 
 **Critical corrections from v1:**
 - The CFG formula was copied verbatim from continuous diffusion — this is incorrect for discrete diffusion. Section 11 provides the corrected formulation.
